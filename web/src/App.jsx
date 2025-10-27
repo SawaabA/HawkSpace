@@ -1,16 +1,15 @@
 import { Routes, Route, Link } from "react-router-dom";
-import RequestBooking from "./pages/RequestBooking.jsx";
+import SearchAvailability from "./pages/SearchAvailability.jsx";
+import RequestBooking from "./pages/RequestBooking.jsx"; // if you created it earlier
 
 function Home() {
   return (
-    <div style={{ padding: "2rem", fontFamily: "Arial" }}>
+    <div style={{ padding: "2rem" }}>
       <h1>HawkSpace</h1>
-      <p>Welcome! Use the button below to request a room booking.</p>
-      <Link to="/request-booking"
-            style={{ background: "#111827", color: "#fff",
-                     padding: "0.6rem 1rem", borderRadius: 6, textDecoration: "none" }}>
-        Request Booking
-      </Link>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Link to="/search" style={{ textDecoration: "none" }}>Search Availability</Link>
+        <Link to="/request-booking" style={{ textDecoration: "none" }}>Request Booking</Link>
+      </div>
     </div>
   );
 }
@@ -19,6 +18,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/search" element={<SearchAvailability />} />
       <Route path="/request-booking" element={<RequestBooking />} />
     </Routes>
   );
