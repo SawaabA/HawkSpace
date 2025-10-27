@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
 import { auth } from "../firebase";
 import Loading from "../components/Loading";
 import { logEvent } from "firebase/analytics";
@@ -21,8 +21,8 @@ export default function Login() {
     setLoading(true);
     try {
       // Using username as email (per given UI). Adjust if you change to email field
-      const persistence = remember ? "local" : "session";
-      window.localStorage.setItem("auth_persistence", persistence);
+      const persistenceMode = remember ? browserLocalPersistence : browserSessionPersistence;
+      await setPersistence(auth, persistenceMode);
       await signInWithEmailAndPassword(auth, username, password);
       const analytics = await getAnalyticsInstance();
       if (analytics) logEvent(analytics, "login", { method: "password" });
