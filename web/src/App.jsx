@@ -13,6 +13,18 @@ function Home() {
                      padding: "0.6rem 1rem", borderRadius: 6, textDecoration: "none" }}>
         Request Booking
       </Link>
+      <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
+        <Link to="/login"
+              style={{ background: "#e5e7eb", color: "#111827",
+                       padding: "0.5rem 0.9rem", borderRadius: 6, textDecoration: "none" }}>
+          Login
+        </Link>
+        <Link to="/signup"
+              style={{ background: "#e5e7eb", color: "#111827",
+                       padding: "0.5rem 0.9rem", borderRadius: 6, textDecoration: "none" }}>
+          Sign up
+        </Link>
+      </div>
     </div>
   );
 }
