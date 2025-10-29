@@ -1,83 +1,49 @@
 import React, { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { logEvent } from "firebase/analytics";
-import { getAnalyticsInstance } from "../analytics";
-import AuthLayout from "../components/AuthLayout";
-import "../styles/Auth.css";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
+  const { login, ALLOWED_DOMAIN } = useAuth();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || "/";
+  const from = location.state?.from?.pathname || "/rooms";
 
-  const onSubmit = async (e) => {
+  function onSubmit(e) {
     e.preventDefault();
     setError("");
-    setLoading(true);
     try {
-      const eLower = email.trim().toLowerCase();
-      if (!eLower.endsWith("@mylaurier.ca")) {
-        throw new Error("Please use your @mylaurier.ca email to sign in.");
-      }
-
-      await signInWithEmailAndPassword(auth, eLower, password);
-
-      const analytics = await getAnalyticsInstance();
-      if (analytics) logEvent(analytics, "login", { method: "password" });
-
+      login(email.trim());
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err.message || "Failed to sign in");
-    } finally {
-      setLoading(false);
+      setError(err.message || "Login failed");
     }
-  };
+  }
 
   return (
-    <AuthLayout
-      title="Welcome back"
-      footer={<Link className="auth-link" to="/signup">Create account</Link>}
-    >
-      {error && <div className="auth-error">{error}</div>}
+    <div style={{ padding: "2rem", fontFamily: "Inter, system-ui, Arial", maxWidth: 420 }}>
+      <h1>Login</h1>
+      <p style={{ color: "#6b7280", marginTop: -6 }}>Use your {ALLOWED_DOMAIN} email.</p>
 
-      <form className="auth-form" onSubmit={onSubmit}>
-        <div className="auth-field">
-          <label className="auth-label">Laurier Email</label>
+      {error && <div style={{ background: "#fee2e2", color: "#991b1b", padding: ".6rem .8rem", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
+
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: "0.8rem" }}>
+        <label>
+          Email
           <input
-            className="auth-input"
             type="email"
-            inputMode="email"
-            placeholder="you@mylaurier.ca"
+            placeholder={`you${ALLOWED_DOMAIN}`}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            autoComplete="username"
+            style={{ width: "100%", padding: ".6rem", borderRadius: 8, border: "1px solid #e5e7eb" }}
             required
           />
-        </div>
-
-        <div className="auth-field">
-          <label className="auth-label">Password</label>
-          <input
-            className="auth-input"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </div>
-
-        <button className="auth-btn" type="submit" disabled={loading}>
-          {loading ? "Signing in…" : "Login"}
+        </label>
+        <button type="submit" style={{ background: "#111827", color: "#fff", padding: ".7rem 1rem", border: "none", borderRadius: 8 }}>
+          Continue
         </button>
       </form>
-    </AuthLayout>
+    </div>
   );
 }

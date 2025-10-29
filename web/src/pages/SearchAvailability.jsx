@@ -1,117 +1,83 @@
 import { useEffect, useMemo, useState } from "react";
 import { db } from "../firebase";
-import {
-  collection, getDocs, query, where,
-} from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
+// import { seedRooms } from "../utils/seedRooms"; // run once if you need demo data
 
 const EQUIPMENT_OPTIONS = ["projector", "whiteboard", "mic", "speakers", "hdmi"];
+const BUILDINGS = ["Science", "Lazaridis Hall", "Peters"];
 
 export default function SearchAvailability() {
-  const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
   const [capacity, setCapacity] = useState("");
+  const [building, setBuilding] = useState("");
   const [requiredEquip, setRequiredEquip] = useState([]);
   const [loading, setLoading] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [results, setResults] = useState([]);
+  const navigate = useNavigate();
 
-  const validTimeWindow = useMemo(() => {
-    if (!startTime || !endTime) return false;
-    return endTime > startTime;
-  }, [startTime, endTime]);
-
-  const toggleEquip = (item) => {
+  const toggleEquip = (eq) =>
     setRequiredEquip((prev) =>
-      prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]
+      prev.includes(eq) ? prev.filter((x) => x !== eq) : [...prev, eq]
     );
-  };
 
-  const handleSearch = async (e) => {
-    e?.preventDefault?.();
-    if (!date || !startTime || !endTime) {
-      alert("Pick date, start, and end time.");
-      return;
-    }
-    if (!validTimeWindow) {
-      alert("End time must be later than start time.");
-      return;
-    }
-
+  const fetchRooms = async () => {
     setLoading(true);
     try {
-      // 1) Get candidate rooms (capacity + active). We’ll filter equipment client-side.
-      const roomsRef = collection(db, "rooms");
-      const capNum = Number(capacity || 0);
-      const qRooms =
-        capNum > 0
-          ? query(roomsRef, where("active", "==", true), where("capacity", ">=", capNum))
-          : query(roomsRef, where("active", "==", true));
+      const col = collection(db, "rooms");
+      const cap = Number(capacity || 0);
 
-      const snap = await getDocs(qRooms);
-      const candidates = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-      // 2) Filter by required equipment on the client (all required must be present).
-      const equipFiltered = requiredEquip.length
-        ? candidates.filter((r) =>
-            Array.isArray(r.equipment) &&
-            requiredEquip.every((eq) => r.equipment.includes(eq))
-          )
-        : candidates;
-
-      // 3) Load bookings for selected date and filter for overlap.
-      // Overlap rule: (booking.start < endTime) && (booking.end > startTime)
-      // We’ll pull all bookings for the date once, then filter by room.
-      const bookingsRef = collection(db, "bookings");
-      const qBookings = query(bookingsRef, where("date", "==", date));
-      const bSnap = await getDocs(qBookings);
-      const bookings = bSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-      const overlappingByRoom = new Map();
-      for (const b of bookings) {
-        const overlaps = b.startTime < endTime && b.endTime > startTime;
-        if (overlaps) {
-          const arr = overlappingByRoom.get(b.roomId) || [];
-          arr.push(b);
-          overlappingByRoom.set(b.roomId, arr);
-        }
+      let q = null;
+      if (cap > 0 && building) {
+        q = query(col, where("active", "==", true), where("capacity", ">=", cap), where("building", "==", building));
+      } else if (cap > 0) {
+        q = query(col, where("active", "==", true), where("capacity", ">=", cap));
+      } else if (building) {
+        q = query(col, where("active", "==", true), where("building", "==", building));
+      } else {
+        q = query(col, where("active", "==", true));
       }
 
-      // 4) Available rooms = equipFiltered minus rooms with overlap.
-      const available = equipFiltered.filter((r) => !overlappingByRoom.has(r.id));
+      const snap = await getDocs(q);
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      setRooms(equipFiltered);
-      setResults(available);
-    } catch (err) {
-      console.error(err);
-      alert("Search failed. Check console for details.");
+      const filtered =
+        requiredEquip.length === 0
+          ? all
+          : all.filter(
+              (r) =>
+                Array.isArray(r.equipment) &&
+                requiredEquip.every((e) => r.equipment.includes(e))
+            );
+
+      setRooms(all);
+      setResults(filtered);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to load rooms.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // auto-run when all key fields are filled & valid
-    if (date && startTime && endTime && validTimeWindow) {
-      handleSearch();
-    }
+    fetchRooms();
+    // seedRooms(); // <- uncomment & refresh ONCE if you need demo data
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, startTime, endTime, capacity, requiredEquip.join("|")]);
+  }, []);
+
+  // re-search whenever filters change
+  useEffect(() => {
+    fetchRooms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capacity, building, requiredEquip.join("|")]);
 
   return (
     <div style={{ padding: "2rem", fontFamily: "Inter, system-ui, Arial" }}>
       <h1>Search Availability</h1>
-      <p>Filter by date, time, capacity, and equipment.</p>
+      <p>Rooms are available 24/7 (time conflicts off for Sprint-1).</p>
 
-      <form
-        onSubmit={handleSearch}
-        style={{ display: "grid", gap: "1rem", maxWidth: 700, gridTemplateColumns: "1fr 1fr" }}
-      >
-        <div>
-          <label>Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </div>
-
+      <div style={{ display: "grid", gap: "1rem", maxWidth: 720, gridTemplateColumns: "1fr 1fr" }}>
         <div>
           <label>Capacity (min)</label>
           <input
@@ -124,13 +90,13 @@ export default function SearchAvailability() {
         </div>
 
         <div>
-          <label>Start Time</label>
-          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-        </div>
-
-        <div>
-          <label>End Time</label>
-          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          <label>Building</label>
+          <select value={building} onChange={(e) => setBuilding(e.target.value)}>
+            <option value="">Any</option>
+            {BUILDINGS.map((b) => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
         </div>
 
         <div style={{ gridColumn: "1 / -1" }}>
@@ -148,64 +114,32 @@ export default function SearchAvailability() {
             ))}
           </div>
         </div>
-
-        <div style={{ gridColumn: "1 / -1" }}>
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              background: "#111827",
-              color: "#fff",
-              padding: ".7rem 1rem",
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-            }}
-          >
-            {loading ? "Searching..." : "Search"}
-          </button>
-          {!validTimeWindow && startTime && endTime && (
-            <div style={{ color: "#b91c1c", marginTop: ".5rem" }}>
-              End time must be after start time.
-            </div>
-          )}
-        </div>
-      </form>
+      </div>
 
       <hr style={{ margin: "1.5rem 0" }} />
 
       <h2>Results</h2>
-      {results.length === 0 ? (
-        <p>No rooms match your criteria (or they’re booked).</p>
+      {loading ? (
+        <p>Loading…</p>
+      ) : results.length === 0 ? (
+        <p>No rooms match your filters.</p>
       ) : (
         <ul style={{ display: "grid", gap: ".75rem", paddingLeft: 0, listStyle: "none" }}>
           {results.map((r) => (
-            <li
-              key={r.id}
-              style={{
-                border: "1px solid #e5e7eb",
-                borderRadius: 10,
-                padding: "1rem",
-                background: "#fafafa",
-              }}
-            >
+            <li key={r.id}
+                style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "1rem", background: "#fafafa" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
                 <div>
-                  <h3 style={{ margin: 0 }}>{r.name || r.id}</h3>
+                  <h3 style={{ margin: 0 }}>{r.building} – {r.name}</h3>
                   <div>Capacity: {r.capacity ?? "—"}</div>
                   <div>Equipment: {Array.isArray(r.equipment) ? r.equipment.join(", ") : "—"}</div>
                 </div>
                 <button
-                  style={{
-                    alignSelf: "center",
-                    background: "#3b82f6",
-                    color: "white",
-                    border: "none",
-                    padding: ".5rem .9rem",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                  }}
-                  onClick={() => alert(`Proceed to request booking for ${r.name || r.id}`)}
+                  style={{ alignSelf: "center", background: "#3b82f6", color: "white",
+                           border: "none", padding: ".5rem .9rem", borderRadius: 8, cursor: "pointer" }}
+                  onClick={() =>
+                    navigate(`/request-booking?roomId=${r.id}`, { state: { room: r } })
+                  }
                 >
                   Request Booking
                 </button>
@@ -213,13 +147,6 @@ export default function SearchAvailability() {
             </li>
           ))}
         </ul>
-      )}
-
-      {/* Optional: show how many rooms match equipment/capacity before time filter */}
-      {rooms.length > results.length && (
-        <p style={{ color: "#6b7280" }}>
-          {rooms.length - results.length} room(s) filtered out due to time conflict.
-        </p>
       )}
     </div>
   );
