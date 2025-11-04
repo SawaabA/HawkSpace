@@ -24,7 +24,7 @@ export default function Login() {
   return (
     <div style={{ padding: "2rem", fontFamily: "Inter, system-ui, Arial", maxWidth: 420 }}>
       <h1>Login</h1>
-      <p style={{ color: "#6b7280", marginTop: -6 }}>Use your {ALLOWED_DOMAIN} email.</p>
+      <p style={{ color: "#6b7280", marginTop: -6 }}>Write your {ALLOWED_DOMAIN} email.</p>
 
       {error && <div style={{ background: "#fee2e2", color: "#991b1b", padding: ".6rem .8rem", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
 
