@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "../firebase";
 import { Link, useNavigate } from "react-router-dom";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { logEvent } from "firebase/analytics";
-import { getAnalyticsInstance } from "../analytics";
-import AuthLayout from "../components/AuthLayout";
-import "../styles/Auth.css";
+import AuthLayout from "@/components/AuthLayout";
+import { auth, db } from "@/services/firebase";
+import { getAnalyticsInstance } from "@/services/analytics";
+import { ALLOWED_DOMAIN } from "@/context/AuthContext";
 
 export default function Signup() {
   const [displayName, setDisplayName] = useState("");
@@ -22,8 +22,8 @@ export default function Signup() {
     setLoading(true);
     try {
       const eLower = email.trim().toLowerCase();
-      if (!eLower.endsWith("@mylaurier.ca")) {
-        throw new Error("Please use your @mylaurier.ca email to sign up.");
+      if (!eLower.endsWith(ALLOWED_DOMAIN)) {
+        throw new Error(`Please use your ${ALLOWED_DOMAIN} email to sign up.`);
       }
 
       const cred = await createUserWithEmailAndPassword(auth, eLower, password);
@@ -75,7 +75,7 @@ export default function Signup() {
             className="auth-input"
             type="email"
             inputMode="email"
-            placeholder="you@mylaurier.ca"
+            placeholder={`you${ALLOWED_DOMAIN}`}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="username"

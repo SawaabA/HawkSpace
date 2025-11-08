@@ -25,4 +25,6 @@ try {
   } else if (p === "session") {
     setPersistence(auth, browserSessionPersistence);
   }
-} catch {}
+} catch (err) {
+  console.warn("Failed to restore Firebase auth persistence", err);
+}

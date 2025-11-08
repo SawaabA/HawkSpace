@@ -1,195 +1,262 @@
-// src/pages/RequestBooking.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { addDoc, collection, getDocs, query, where, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { useRooms } from "@/hooks/useRooms";
+import { useRoomCalendar } from "@/hooks/useRoomCalendar";
+import { useAuth } from "@/context/AuthContext";
+import { createBookingRequest } from "@/services/bookings";
+import {
+  formatDateWithWeekday,
+  getDefaultDate,
+  slotOptions,
+  slotToTime,
+  slotsConflict,
+} from "@/utils/slots";
+import { MAX_BOOKING_HOURS, MAX_SLOTS_PER_BOOKING, OPERATING_TIMEZONE, TOTAL_SLOTS } from "@/constants/schedule";
 
-function overlaps(aStart, aEnd, bStart, bEnd) {
-  // times are "HH:MM" 24h, so string compare works
-  return aStart < bEnd && bStart < aEnd;
-}
+const statusColors = {
+  available: "#ecfccb",
+  pending: "#fef3c7",
+  modified: "#e0e7ff",
+  approved: "#fee2e2",
+};
 
 export default function RequestBooking() {
+  const { rooms } = useRooms({ activeOnly: true });
+  const { user, profile } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const user = auth.currentUser || null;
+  const initialRoom = params.get("roomId");
+  const initialDate = params.get("date") || getDefaultDate();
+  const initialStart = params.get("startSlot") ? Number(params.get("startSlot")) : null;
+  const initialEnd = initialStart != null ? Math.min(initialStart + 2, TOTAL_SLOTS) : null;
 
-  const [form, setForm] = useState({
-    roomId: "",
-    roomName: "",
-    date: "",
-    startTime: "",
-    endTime: "",
-    notes: "",
-    name: "",
-    email: "",
-    club: "",
-  });
-
+  const [roomId, setRoomId] = useState(initialRoom || "");
+  const [date, setDate] = useState(initialDate);
+  const [startSlot, setStartSlot] = useState(initialStart);
+  const [endSlot, setEndSlot] = useState(initialEnd);
+  const [notes, setNotes] = useState(params.get("notes") || "");
+  const [error, setError] = useState("");
+  const [successId, setSuccessId] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [createdId, setCreatedId] = useState("");
 
-  // Prefill from query params and current user
   useEffect(() => {
-    const prefilled = {
-      roomId: params.get("roomId") || "",
-      roomName: params.get("roomName") || "",
-      date: params.get("date") || "",
-      startTime: params.get("start") || "",
-      endTime: params.get("end") || "",
-    };
-    setForm((f) => ({
-      ...f,
-      ...prefilled,
-      name: user?.displayName || f.name,
-      email: user?.email || f.email,
-    }));
-    // If not signed in, send to login then back here
+    if (!roomId && rooms.length) setRoomId(rooms[0].id);
+  }, [rooms, roomId]);
+
+  const selectedRoom = rooms.find((room) => room.id === roomId);
+  const { calendar } = useRoomCalendar(roomId, date);
+
+  const slotChoices = slotOptions();
+  const startOptions = slotChoices.filter((opt) => opt.slot < TOTAL_SLOTS);
+  const endOptions = slotChoices.filter((opt) => opt.slot > (startSlot ?? -1) && opt.slot <= Math.min(TOTAL_SLOTS, (startSlot ?? 0) + MAX_SLOTS_PER_BOOKING));
+
+  const conflict = useMemo(() => {
+    if (startSlot == null || endSlot == null) return false;
+    return slotsConflict(calendar?.slots, startSlot, endSlot);
+  }, [calendar, startSlot, endSlot]);
+
+  const timelineSlots = useMemo(() => {
+    const slots = calendar?.slots || {};
+    return Array.from({ length: TOTAL_SLOTS }, (_, slot) => {
+      const entry = slots?.[slot];
+      const status = entry?.status || "available";
+      const isSelected = startSlot != null && endSlot != null && slot >= startSlot && slot < endSlot;
+      return { slot, status, label: slotToTime(slot), isSelected };
+    });
+  }, [calendar, startSlot, endSlot]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     if (!user) {
       navigate("/login", { replace: true, state: { from: location } });
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  const validTimes = useMemo(
-    () => !!form.startTime && !!form.endTime && form.endTime > form.startTime,
-    [form.startTime, form.endTime]
-  );
-
-  const onChange = (e) => {
-    const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
-  };
-
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-
-    // required fields
-    const required = ["roomId", "roomName", "date", "startTime", "endTime", "email"];
-    for (const k of required) {
-      if (!form[k]) {
-        alert("Please fill all required fields."); 
-        return;
-      }
+    if (!selectedRoom) {
+      setError("Select a room");
+      return;
     }
-    if (!validTimes) {
-      alert("End time must be later than start time.");
+    if (startSlot == null || endSlot == null) {
+      setError("Select a start and end time");
       return;
     }
 
+    setError("");
     setSubmitting(true);
     try {
-      // 1) conflict check for same room + date
-      const qConflicts = query(
-        collection(db, "bookings"),
-        where("roomId", "==", form.roomId),
-        where("date", "==", form.date)
-      );
-      const snap = await getDocs(qConflicts);
-      const conflicts = snap.docs
-        .map((d) => d.data())
-        .some((b) => overlaps(form.startTime, form.endTime, b.startTime, b.endTime));
-
-      if (conflicts) {
-        alert("That room is already booked in this time window.");
-        return;
-      }
-
-      // 2) create booking
-      const docRef = await addDoc(collection(db, "bookings"), {
-        uid: user.uid,
-        roomId: form.roomId,
-        roomName: form.roomName,
-        date: form.date,          // "YYYY-MM-DD"
-        startTime: form.startTime, // "HH:MM"
-        endTime: form.endTime,
-        notes: form.notes || "",
-        createdAt: serverTimestamp(),
+      const id = await createBookingRequest({
+        room: selectedRoom,
+        date,
+        startSlot,
+        endSlot,
+        notes,
+        user: {
+          uid: user.uid,
+          email: user.email,
+          displayName: profile?.displayName || user.email,
+          role: profile?.role,
+        },
       });
-      setCreatedId(docRef.id);
+      setSuccessId(id);
     } catch (err) {
-      console.error(err);
-      alert("Failed to submit booking.");
+      setError(err.message || "Failed to submit request");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!user) return null; // redirected to login
+  if (successId) {
+    return (
+      <div>
+        <h1>Request submitted ✅</h1>
+        <p>Tracking ID: <code>{successId}</code></p>
+        <p>You&apos;ll receive an email when an admin reviews the request.</p>
+        <button onClick={() => navigate("/my-requests")}>View my requests</button>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: "2rem", fontFamily: "Inter, system-ui, Arial" }}>
-      <h1>Request Booking</h1>
+    <div>
+      <h1>Request a Classroom</h1>
+      <p style={{ color: "#6b7280", marginTop: -6 }}>Maximum duration {MAX_BOOKING_HOURS} hours ({OPERATING_TIMEZONE}).</p>
 
-      {!createdId ? (
-        <form
-          onSubmit={submit}
-          style={{ display: "flex", flexDirection: "column", gap: "0.9rem", maxWidth: 420 }}
-        >
-          {/* read-only user info pulled from auth */}
-          <input name="name" value={form.name} onChange={onChange} placeholder="Your name"
-                 disabled style={{ background: "#f3f4f6" }} />
-          <input name="email" value={form.email} onChange={onChange} placeholder="Your email"
-                 disabled style={{ background: "#f3f4f6" }} />
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1.2rem", maxWidth: 720 }}>
+        <label style={labelStyle}>
+          Room
+          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} style={inputStyle} required>
+            <option value="">Select a room</option>
+            {rooms.map((room) => (
+              <option key={room.id} value={room.id}>
+                {room.displayName || room.name || room.id} ({room.building})
+              </option>
+            ))}
+          </select>
+        </label>
 
-          <input name="club" value={form.club} onChange={onChange} placeholder="Club (optional)" />
+        <label style={labelStyle}>
+          Date
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} required />
+        </label>
 
-          {/* room & time */}
-          <input name="roomName" value={form.roomName} onChange={onChange}
-                 placeholder="Room name" disabled={!!form.roomName}
-                 style={form.roomName ? { background: "#f3f4f6" } : undefined}/>
-          <input name="roomId" value={form.roomId} onChange={onChange}
-                 placeholder="Room ID" disabled={!!form.roomId}
-                 style={form.roomId ? { background: "#f3f4f6" } : undefined}/>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem" }}>
+          <label style={labelStyle}>
+            Start time
+            <select
+              value={startSlot ?? ""}
+              onChange={(e) => {
+                const slot = Number(e.target.value);
+                setStartSlot(slot);
+                if (!endSlot || endSlot <= slot) {
+                  setEndSlot(Math.min(slot + 2, TOTAL_SLOTS));
+                }
+              }}
+              style={inputStyle}
+              required
+            >
+              <option value="">Select…</option>
+              {startOptions.map((opt) => (
+                <option key={opt.slot} value={opt.slot}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <input type="date" name="date" value={form.date} onChange={onChange} />
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <div>
-              <label style={{ fontSize: 12 }}>Start</label>
-              <input type="time" name="startTime" value={form.startTime} onChange={onChange} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12 }}>End</label>
-              <input type="time" name="endTime" value={form.endTime} onChange={onChange} />
-            </div>
-          </div>
-          {!validTimes && form.startTime && form.endTime && (
-            <div style={{ color: "#b91c1c", fontSize: 13 }}>End time must be after start time.</div>
-          )}
-
-          <textarea name="notes" value={form.notes} onChange={onChange} placeholder="Notes (optional)" />
-
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              background: "#3b82f6",
-              color: "#fff",
-              padding: "0.6rem",
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
-          >
-            {submitting ? "Submitting…" : "Submit Booking"}
-          </button>
-        </form>
-      ) : (
-        <div style={{ marginTop: "1rem" }}>
-          <h3>✅ Booking submitted!</h3>
-          <p>Your request ID: <code>{createdId}</code></p>
-          <button
-            onClick={() => navigate("/")}
-            style={{ marginTop: 8, padding: ".5rem .9rem", border: "1px solid #e5e7eb", borderRadius: 8, cursor: "pointer" }}
-          >
-            Back to Home
-          </button>
+          <label style={labelStyle}>
+            End time
+            <select
+              value={endSlot ?? ""}
+              onChange={(e) => setEndSlot(Number(e.target.value))}
+              style={inputStyle}
+              required
+              disabled={startSlot == null}
+            >
+              <option value="">Select…</option>
+              {endOptions.map((opt) => (
+                <option key={opt.slot} value={opt.slot}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-      )}
+
+        <label style={labelStyle}>
+          Notes (optional)
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            style={{ ...inputStyle, resize: "vertical" }}
+            placeholder="Club name, setup needs, etc."
+          />
+        </label>
+
+        {error && <div style={{ color: "#b91c1c" }}>{error}</div>}
+        {conflict && <div style={{ color: "#92400e" }}>Selected time overlaps an approved or pending request.</div>}
+
+        <button
+          type="submit"
+          disabled={submitting || conflict}
+          style={{
+            padding: "0.9rem 1.4rem",
+            borderRadius: 12,
+            border: "none",
+            background: conflict ? "#cbd5f5" : "#4338ca",
+            color: "white",
+            fontWeight: 600,
+            cursor: conflict ? "not-allowed" : "pointer",
+          }}
+        >
+          {submitting ? "Submitting…" : "Submit request"}
+        </button>
+      </form>
+
+      <section style={{ marginTop: "2rem" }}>
+        <h2>
+          Timeline — {selectedRoom ? selectedRoom.displayName || selectedRoom.name : "Pick a room"}
+        </h2>
+        <p style={{ color: "#6b7280", marginTop: -8 }}>{formatDateWithWeekday(date)}</p>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
+          {Object.entries(statusColors).map(([status, color]) => (
+            <span key={status} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 14, height: 14, borderRadius: 3, background: color }} />
+              <span style={{ fontSize: 12, textTransform: "capitalize" }}>{status}</span>
+            </span>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 6 }}>
+          {timelineSlots.map((slot) => (
+            <div
+              key={slot.slot}
+              style={{
+                padding: ".45rem .4rem",
+                borderRadius: 10,
+                border: slot.isSelected ? "2px solid #4338ca" : "1px solid #e5e7eb",
+                background: statusColors[slot.status] || "#ecfccb",
+                fontSize: 12,
+                textAlign: "center",
+              }}
+            >
+              {slot.label}
+              <br />
+              <strong>{slot.status}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
+
+const labelStyle = { display: "grid", gap: 6, fontSize: 14, color: "#111827" };
+const inputStyle = {
+  width: "100%",
+  padding: ".6rem .75rem",
+  borderRadius: 10,
+  border: "1px solid #cbd5f5",
+  fontSize: 16,
+  background: "#fff",
+};

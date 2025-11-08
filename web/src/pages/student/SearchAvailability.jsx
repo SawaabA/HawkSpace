@@ -1,153 +1,257 @@
 import { useEffect, useMemo, useState } from "react";
-import { db } from "../firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-// import { seedRooms } from "../utils/seedRooms"; // run once if you need demo data
+import { useRooms } from "@/hooks/useRooms";
+import { useRoomCalendar } from "@/hooks/useRoomCalendar";
+import { OPERATING_TIMEZONE, TOTAL_SLOTS } from "@/constants/schedule";
+import {
+  formatDateWithWeekday,
+  getDefaultDate,
+  slotToTime,
+} from "@/utils/slots";
 
-const EQUIPMENT_OPTIONS = ["projector", "whiteboard", "mic", "speakers", "hdmi"];
-const BUILDINGS = ["Science", "Lazaridis Hall", "Peters"];
+const equipmentOptions = ["projector", "whiteboard", "speakers", "mic", "hdmi"];
+
+const statusColors = {
+  available: "#ecfccb",
+  pending: "#fef3c7",
+  modified: "#e0e7ff",
+  approved: "#fee2e2",
+};
 
 export default function SearchAvailability() {
-  const [capacity, setCapacity] = useState("");
+  const { rooms, loading } = useRooms({ activeOnly: true });
   const [building, setBuilding] = useState("");
+  const [capacity, setCapacity] = useState("");
   const [requiredEquip, setRequiredEquip] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [rooms, setRooms] = useState([]);
-  const [results, setResults] = useState([]);
+  const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const [date, setDate] = useState(getDefaultDate());
   const navigate = useNavigate();
 
-  const toggleEquip = (eq) =>
-    setRequiredEquip((prev) =>
-      prev.includes(eq) ? prev.filter((x) => x !== eq) : [...prev, eq]
-    );
-
-  const fetchRooms = async () => {
-    setLoading(true);
-    try {
-      const col = collection(db, "rooms");
-      const cap = Number(capacity || 0);
-
-      let q = null;
-      if (cap > 0 && building) {
-        q = query(col, where("active", "==", true), where("capacity", ">=", cap), where("building", "==", building));
-      } else if (cap > 0) {
-        q = query(col, where("active", "==", true), where("capacity", ">=", cap));
-      } else if (building) {
-        q = query(col, where("active", "==", true), where("building", "==", building));
-      } else {
-        q = query(col, where("active", "==", true));
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((room) => {
+      if (building && room.building !== building) return false;
+      if (capacity && Number(room.capacity || 0) < Number(capacity)) return false;
+      if (requiredEquip.length) {
+        const equipment = (room.equipment || []).map((item) => item.toLowerCase());
+        if (!requiredEquip.every((req) => equipment.includes(req))) return false;
       }
+      return true;
+    });
+  }, [rooms, building, capacity, requiredEquip]);
 
-      const snap = await getDocs(q);
-      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-      const filtered =
-        requiredEquip.length === 0
-          ? all
-          : all.filter(
-              (r) =>
-                Array.isArray(r.equipment) &&
-                requiredEquip.every((e) => r.equipment.includes(e))
-            );
-
-      setRooms(all);
-      setResults(filtered);
-    } catch (e) {
-      console.error(e);
-      alert("Failed to load rooms.");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (!filteredRooms.length) {
+      setSelectedRoomId(null);
+      return;
     }
+    if (!selectedRoomId || !filteredRooms.some((room) => room.id === selectedRoomId)) {
+      setSelectedRoomId(filteredRooms[0].id);
+    }
+  }, [filteredRooms, selectedRoomId]);
+
+  const selectedRoom = filteredRooms.find((room) => room.id === selectedRoomId);
+  const { calendar } = useRoomCalendar(selectedRoomId, date);
+
+  const timelineSlots = useMemo(() => {
+    const slots = calendar?.slots || {};
+    return Array.from({ length: TOTAL_SLOTS }, (_, slot) => {
+      const entry = slots?.[slot];
+      return {
+        slot,
+        status: entry?.status || "available",
+        label: slotToTime(slot),
+      };
+    });
+  }, [calendar]);
+
+  const toggleEquip = (value) => {
+    setRequiredEquip((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
   };
 
-  useEffect(() => {
-    fetchRooms();
-    // seedRooms(); // <- uncomment & refresh ONCE if you need demo data
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // re-search whenever filters change
-  useEffect(() => {
-    fetchRooms();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [capacity, building, requiredEquip.join("|")]);
+  const startRequest = () => {
+    if (!selectedRoom) return;
+    navigate(`/request?roomId=${selectedRoom.id}&date=${date}`);
+  };
 
   return (
-    <div style={{ padding: "2rem", fontFamily: "Inter, system-ui, Arial" }}>
-      <h1>Search Availability</h1>
-      <p>Rooms are available 24/7 (time conflicts off for Sprint-1).</p>
+    <div>
+      <h1>Find a Classroom</h1>
+      <p style={{ color: "#475467", marginTop: -6 }}>
+        Monday–Friday, 08:30–23:00 ({OPERATING_TIMEZONE}). Pending requests are shown as amber slots.
+      </p>
 
-      <div style={{ display: "grid", gap: "1rem", maxWidth: 720, gridTemplateColumns: "1fr 1fr" }}>
-        <div>
-          <label>Capacity (min)</label>
-          <input
-            type="number"
-            min={0}
-            placeholder="e.g., 20"
-            value={capacity}
-            onChange={(e) => setCapacity(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label>Building</label>
-          <select value={building} onChange={(e) => setBuilding(e.target.value)}>
+      <section
+        style={{
+          marginTop: "1.5rem",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: "1rem",
+        }}
+      >
+        <label style={labelStyle}>
+          Building
+          <select value={building} onChange={(e) => setBuilding(e.target.value)} style={inputStyle}>
             <option value="">Any</option>
-            {BUILDINGS.map((b) => (
+            {[...new Set(rooms.map((room) => room.building))].map((b) => (
               <option key={b} value={b}>{b}</option>
             ))}
           </select>
-        </div>
+        </label>
 
-        <div style={{ gridColumn: "1 / -1" }}>
-          <label>Equipment</label>
-          <div style={{ display: "flex", gap: ".75rem", flexWrap: "wrap", marginTop: ".5rem" }}>
-            {EQUIPMENT_OPTIONS.map((eq) => (
-              <label key={eq} style={{ display: "inline-flex", gap: ".4rem", alignItems: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={requiredEquip.includes(eq)}
-                  onChange={() => toggleEquip(eq)}
-                />
-                {eq}
-              </label>
-            ))}
-          </div>
+        <label style={labelStyle}>
+          Min capacity
+          <input
+            style={inputStyle}
+            type="number"
+            min={0}
+            placeholder="e.g. 20"
+            value={capacity}
+            onChange={(e) => setCapacity(e.target.value)}
+          />
+        </label>
+
+        <label style={labelStyle}>
+          Date
+          <input
+            style={inputStyle}
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </label>
+      </section>
+
+      <div style={{ marginTop: "1rem" }}>
+        <span style={{ fontWeight: 600 }}>Equipment</span>
+        <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap", marginTop: ".4rem" }}>
+          {equipmentOptions.map((eq) => (
+            <button
+              key={eq}
+              type="button"
+              onClick={() => toggleEquip(eq)}
+              style={{
+                padding: ".35rem .75rem",
+                borderRadius: "999px",
+                border: requiredEquip.includes(eq) ? "1px solid #4338ca" : "1px solid #d1d5db",
+                background: requiredEquip.includes(eq) ? "#eef2ff" : "white",
+                textTransform: "capitalize",
+                cursor: "pointer",
+              }}
+            >
+              {eq}
+            </button>
+          ))}
         </div>
       </div>
 
-      <hr style={{ margin: "1.5rem 0" }} />
-
-      <h2>Results</h2>
-      {loading ? (
-        <p>Loading…</p>
-      ) : results.length === 0 ? (
-        <p>No rooms match your filters.</p>
-      ) : (
-        <ul style={{ display: "grid", gap: ".75rem", paddingLeft: 0, listStyle: "none" }}>
-          {results.map((r) => (
-            <li key={r.id}
-                style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "1rem", background: "#fafafa" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
-                <div>
-                  <h3 style={{ margin: 0 }}>{r.building} – {r.name}</h3>
-                  <div>Capacity: {r.capacity ?? "—"}</div>
-                  <div>Equipment: {Array.isArray(r.equipment) ? r.equipment.join(", ") : "—"}</div>
+      <section style={{ marginTop: "2rem", display: "flex", gap: "2rem" }}>
+        <div style={{ flex: 1 }}>
+          <h2>Matching rooms ({filteredRooms.length})</h2>
+          {loading && <p>Loading rooms…</p>}
+          {!loading && filteredRooms.length === 0 && <p>No rooms match those filters.</p>}
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "0.8rem" }}>
+            {filteredRooms.map((room) => (
+              <li
+                key={room.id}
+                onClick={() => setSelectedRoomId(room.id)}
+                style={{
+                  border: room.id === selectedRoomId ? "2px solid #4338ca" : "1px solid #e5e7eb",
+                  borderRadius: 16,
+                  padding: "1rem",
+                  background: "white",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>{room.displayName || room.name || room.id}</div>
+                <div style={{ color: "#6b7280", fontSize: 14 }}>{room.building}</div>
+                <div style={{ fontSize: 14 }}>
+                  Capacity {room.capacity || "—"} · {(room.equipment || []).join(", ") || "No equipment listed"}
                 </div>
-                <button
-                  style={{ alignSelf: "center", background: "#3b82f6", color: "white",
-                           border: "none", padding: ".5rem .9rem", borderRadius: 8, cursor: "pointer" }}
-                  onClick={() =>
-                    navigate(`/request-booking?roomId=${r.id}`, { state: { room: r } })
-                  }
-                >
-                  Request Booking
-                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div style={{ flex: 1.2 }}>
+          <h2>Timeline — {selectedRoom ? selectedRoom.displayName || selectedRoom.name : "Select a room"}</h2>
+          <p style={{ color: "#6b7280", marginTop: -8 }}>{formatDateWithWeekday(date)}</p>
+          {selectedRoom ? (
+            <div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+                  gap: 10,
+                  marginBottom: 18,
+                }}
+              >
+                {Object.entries(statusColors).map(([status, color]) => (
+                  <div key={status} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 16, height: 16, background: color, borderRadius: 4 }} />
+                    <span style={{ textTransform: "capitalize", fontSize: 13 }}>{status}</span>
+                  </div>
+                ))}
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))",
+                  gap: 6,
+                }}
+              >
+                {timelineSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    style={{
+                      padding: ".4rem",
+                      borderRadius: 10,
+                      background: statusColors[slot.status] || "#ecfccb",
+                      border: "1px solid #e5e7eb",
+                      fontSize: 12,
+                      textAlign: "center",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {slot.label}
+                    <br />
+                    <span style={{ fontWeight: 600 }}>{slot.status}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={startRequest}
+                style={{
+                  marginTop: "1.5rem",
+                  background: "#4338ca",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 12,
+                  padding: ".75rem 1.5rem",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                Request this room
+              </button>
+            </div>
+          ) : (
+            <p>Select a room to view availability.</p>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
+
+const labelStyle = { display: "grid", gap: 6, fontSize: 14, color: "#1f2933" };
+const inputStyle = {
+  padding: ".5rem .75rem",
+  borderRadius: 10,
+  border: "1px solid #cbd5f5",
+  fontSize: 16,
+};

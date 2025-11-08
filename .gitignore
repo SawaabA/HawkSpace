@@ -209,3 +209,7 @@ __marimo__/
 package-lock.json
 web/package-lock.json
 web/package.json
+web/jsconfig.json
+web/serviceAccountKey.json
+
+notes/

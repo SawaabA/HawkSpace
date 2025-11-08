@@ -1,5 +1,6 @@
-// src/components/AuthLayout.jsx
-export default function AuthLayout({ title, children, footer }) {
+import "@/styles/Auth.css";
+
+export default function AuthLayout({ title, subtitle, children, footer }) {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
@@ -15,6 +16,7 @@ export default function AuthLayout({ title, children, footer }) {
 
         <div className="auth-body">
           <h2 className="auth-title">{title}</h2>
+          {subtitle && <p className="auth-subtitle">{subtitle}</p>}
           {children}
         </div>
 
