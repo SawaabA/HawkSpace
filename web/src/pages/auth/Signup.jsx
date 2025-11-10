@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signInWithEmailAndPassword } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { logEvent } from "firebase/analytics";
 import AuthLayout from "@/components/AuthLayout";
 import { auth, db } from "@/services/firebase";
 import { getAnalyticsInstance } from "@/services/analytics";
@@ -39,12 +38,50 @@ export default function Signup() {
         createdAt: serverTimestamp(),
       });
 
-      const analytics = await getAnalyticsInstance();
-      if (analytics) logEvent(analytics, "sign_up", { method: "password" });
+      // TEMPORARY: Skip verification email for now
+      // TODO: Re-enable once email delivery is fixed
+      // try {
+      //   console.log("Attempting to send verification email to:", cred.user.email);
+      //   await sendEmailVerification(cred.user, {
+      //     url: window.location.origin + '/login',
+      //     handleCodeInApp: false
+      //   });
+      //   console.log("Verification email sent successfully");
+      // } catch (verifyErr) {
+      //   console.error("Failed to send verification email:", verifyErr);
+      //   console.error("Error code:", verifyErr?.code);
+      //   console.error("Error message:", verifyErr?.message);
+      // }
 
-      navigate("/login");
+      try {
+        const analytics = await getAnalyticsInstance();
+        if (analytics) {
+          const { logEvent } = await import("firebase/analytics");
+          logEvent(analytics, "sign_up", { method: "password" });
+        }
+      } catch (err) {
+        console.warn("Failed to log analytics event:", err);
+      }
+
+      // TEMPORARY: Go directly to search instead of verification page
+      navigate("/search", { replace: true });
     } catch (err) {
-      setError(err.message || "Failed to create account");
+      if (err?.code === "auth/email-already-in-use") {
+        try {
+          const cred = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+          // TEMPORARY: Skip verification check, go directly to search
+          navigate("/search", { replace: true });
+          return;
+        } catch (signinErr) {
+          const message =
+            signinErr?.code === "auth/wrong-password"
+              ? "Account already exists. Please sign in or reset your password."
+              : "Account already exists. Please sign in.";
+          setError(message);
+          return;
+        }
+      }
+      setError(err?.message || "Failed to create account");
     } finally {
       setLoading(false);
     }

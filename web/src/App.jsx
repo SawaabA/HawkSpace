@@ -5,6 +5,8 @@ import AdminRoute from "@/components/AdminRoute";
 import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 import Logout from "@/pages/auth/Logout";
+import VerifyEmail from "@/pages/auth/VerifyEmail";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
 import StudentLayout from "@/pages/student/StudentLayout";
 import SearchAvailability from "@/pages/student/SearchAvailability";
 import RequestBooking from "@/pages/student/RequestBooking";
@@ -27,7 +29,10 @@ export default function App() {
       <Route element={<UnauthRoute />}>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
       </Route>
+
+      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/logout" element={<Logout />} />
 
       <Route element={<ProtectedRoute />}>
