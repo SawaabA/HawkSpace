@@ -4,8 +4,8 @@ import {
   doc,
   runTransaction,
   serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/services/firebase";
+} from "firebase/firestore"
+import { db } from "@/services/firebase"
 import {
   buildSlotRange,
   computeDurationLabel,
@@ -13,15 +13,16 @@ import {
   slotToTime,
   slotsConflict,
   validateSlotWindow,
-} from "@/utils/slots";
-import { OPERATING_TIMEZONE } from "@/constants/schedule";
+} from "@/utils/slots"
+import { OPERATING_TIMEZONE } from "@/constants/schedule"
 
-const bookingRequestsCol = collection(db, "bookingRequests");
+const bookingRequestsCol = collection(db, "bookingRequests")
 
 const randomId = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return `hist-${Math.random().toString(36).slice(2, 10)}`;
-};
+  if (typeof crypto !== "undefined" && crypto.randomUUID)
+    return crypto.randomUUID()
+  return `hist-${Math.random().toString(36).slice(2, 10)}`
+}
 
 const buildHistoryEntry = (action, actor, notes = "", meta = {}) => ({
   id: randomId(),
@@ -34,43 +35,50 @@ const buildHistoryEntry = (action, actor, notes = "", meta = {}) => ({
   },
   notes,
   meta,
-  timestamp: new Date().toISOString(), // Use ISO string instead of serverTimestamp() for arrays
-});
+  timestamp: new Date().toISOString(),
+})
 
 const applySlots = (slots = {}, startSlot, endSlot, requestId, status) => {
-  const next = { ...(slots || {}) };
+  const next = { ...(slots || {}) }
   for (const slot of buildSlotRange(startSlot, endSlot)) {
-    next[slot] = { status, requestId };
+    next[slot] = { status, requestId }
   }
-  return next;
-};
+  return next
+}
 
 const removeSlots = (slots = {}, startSlot, endSlot, requestId) => {
-  const next = { ...(slots || {}) };
+  const next = { ...(slots || {}) }
   for (const slot of buildSlotRange(startSlot, endSlot)) {
-    if (next[slot]?.requestId === requestId) delete next[slot];
+    if (next[slot]?.requestId === requestId) delete next[slot]
   }
-  return next;
-};
+  return next
+}
 
 const ensureCalendar = (snap, roomId, date) => {
-  if (snap.exists()) return snap.data();
-  return { roomId, date, slots: {}, pendingRequestIds: [] };
-};
+  if (snap.exists()) return snap.data()
+  return { roomId, date, slots: {}, pendingRequestIds: [] }
+}
 
-export async function createBookingRequest({ room, date, startSlot, endSlot, notes = "", user }) {
-  if (!room?.id) throw new Error("Select a room to continue");
-  validateSlotWindow({ date, startSlot, endSlot });
+export async function createBookingRequest({
+  room,
+  date,
+  startSlot,
+  endSlot,
+  notes = "",
+  user,
+}) {
+  if (!room?.id) throw new Error("Select a room to continue")
+  validateSlotWindow({ date, startSlot, endSlot })
 
-  const requestRef = doc(bookingRequestsCol);
-  const calendarRef = doc(db, "rooms", room.id, "days", date);
+  const requestRef = doc(bookingRequestsCol)
+  const calendarRef = doc(db, "rooms", room.id, "days", date)
 
   await runTransaction(db, async (tx) => {
-    const calendarSnap = await tx.get(calendarRef);
-    const calendarData = ensureCalendar(calendarSnap, room.id, date);
+    const calendarSnap = await tx.get(calendarRef)
+    const calendarData = ensureCalendar(calendarSnap, room.id, date)
 
     if (slotsConflict(calendarData.slots, startSlot, endSlot)) {
-      throw new Error("That time window is already claimed or pending review.");
+      throw new Error("That time window is already claimed or pending review.")
     }
 
     const requestDoc = {
@@ -102,14 +110,22 @@ export async function createBookingRequest({ room, date, startSlot, endSlot, not
       timezone: OPERATING_TIMEZONE,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-      history: [buildHistoryEntry("created", user, notes || "Submitted request")],
-    };
+      history: [
+        buildHistoryEntry("created", user, notes || "Submitted request"),
+      ],
+    }
 
-    tx.set(requestRef, requestDoc);
+    tx.set(requestRef, requestDoc)
 
-    const slots = applySlots(calendarData.slots, startSlot, endSlot, requestRef.id, "pending");
-    const pending = new Set(calendarData.pendingRequestIds || []);
-    pending.add(requestRef.id);
+    const slots = applySlots(
+      calendarData.slots,
+      startSlot,
+      endSlot,
+      requestRef.id,
+      "pending"
+    )
+    const pending = new Set(calendarData.pendingRequestIds || [])
+    pending.add(requestRef.id)
 
     tx.set(
       calendarRef,
@@ -121,38 +137,64 @@ export async function createBookingRequest({ room, date, startSlot, endSlot, not
         updatedAt: serverTimestamp(),
       },
       { merge: true }
-    );
-  });
+    )
+  })
 
-  return requestRef.id;
+  return requestRef.id
 }
 
-export async function approveBookingRequest({ requestId, admin, adminNotes = "" }) {
-  const requestRef = doc(db, "bookingRequests", requestId);
+export async function approveBookingRequest({
+  requestId,
+  admin,
+  adminNotes = "",
+}) {
+  const requestRef = doc(db, "bookingRequests", requestId)
   await runTransaction(db, async (tx) => {
-    const requestSnap = await tx.get(requestRef);
-    if (!requestSnap.exists()) throw new Error("Request not found");
-    const request = requestSnap.data();
+    const requestSnap = await tx.get(requestRef)
+    if (!requestSnap.exists()) throw new Error("Request not found")
+    const request = requestSnap.data()
 
-    const calendarRef = doc(db, "rooms", request.roomId, "days", request.date);
-    const calendarSnap = await tx.get(calendarRef);
-    const calendarData = ensureCalendar(calendarSnap, request.roomId, request.date);
+    const calendarRef = doc(db, "rooms", request.roomId, "days", request.date)
+    const calendarSnap = await tx.get(calendarRef)
+    const calendarData = ensureCalendar(
+      calendarSnap,
+      request.roomId,
+      request.date
+    )
 
-    if (slotsConflict(calendarData.slots, request.startSlot, request.endSlot, requestId)) {
-      throw new Error("Conflict detected while approving. Try a different time.");
+    if (
+      slotsConflict(
+        calendarData.slots,
+        request.startSlot,
+        request.endSlot,
+        requestId
+      )
+    ) {
+      throw new Error(
+        "Conflict detected while approving. Try a different time."
+      )
     }
 
-    const slots = applySlots(calendarData.slots, request.startSlot, request.endSlot, requestId, "approved");
-    const pending = new Set(calendarData.pendingRequestIds || []);
-    pending.delete(requestId);
+    const slots = applySlots(
+      calendarData.slots,
+      request.startSlot,
+      request.endSlot,
+      requestId,
+      "approved"
+    )
+    const pending = new Set(calendarData.pendingRequestIds || [])
+    pending.delete(requestId)
 
     tx.update(requestRef, {
       status: "approved",
       adminNotes: adminNotes || request.adminNotes || "",
-      decision: `Approved for ${describeSlotRange(request.startSlot, request.endSlot)}`,
+      decision: `Approved for ${describeSlotRange(
+        request.startSlot,
+        request.endSlot
+      )}`,
       updatedAt: serverTimestamp(),
       history: arrayUnion(buildHistoryEntry("approved", admin, adminNotes)),
-    });
+    })
 
     tx.set(
       calendarRef,
@@ -164,24 +206,33 @@ export async function approveBookingRequest({ requestId, admin, adminNotes = "" 
         updatedAt: serverTimestamp(),
       },
       { merge: true }
-    );
-  });
+    )
+  })
 }
 
 export async function rejectBookingRequest({ requestId, admin, reason = "" }) {
-  const requestRef = doc(db, "bookingRequests", requestId);
+  const requestRef = doc(db, "bookingRequests", requestId)
   await runTransaction(db, async (tx) => {
-    const requestSnap = await tx.get(requestRef);
-    if (!requestSnap.exists()) throw new Error("Request not found");
-    const request = requestSnap.data();
+    const requestSnap = await tx.get(requestRef)
+    if (!requestSnap.exists()) throw new Error("Request not found")
+    const request = requestSnap.data()
 
-    const calendarRef = doc(db, "rooms", request.roomId, "days", request.date);
-    const calendarSnap = await tx.get(calendarRef);
-    const calendarData = ensureCalendar(calendarSnap, request.roomId, request.date);
+    const calendarRef = doc(db, "rooms", request.roomId, "days", request.date)
+    const calendarSnap = await tx.get(calendarRef)
+    const calendarData = ensureCalendar(
+      calendarSnap,
+      request.roomId,
+      request.date
+    )
 
-    const slots = removeSlots(calendarData.slots, request.startSlot, request.endSlot, requestId);
-    const pending = new Set(calendarData.pendingRequestIds || []);
-    pending.delete(requestId);
+    const slots = removeSlots(
+      calendarData.slots,
+      request.startSlot,
+      request.endSlot,
+      requestId
+    )
+    const pending = new Set(calendarData.pendingRequestIds || [])
+    pending.delete(requestId)
 
     tx.update(requestRef, {
       status: "rejected",
@@ -189,7 +240,7 @@ export async function rejectBookingRequest({ requestId, admin, reason = "" }) {
       decision: reason || "Rejected",
       updatedAt: serverTimestamp(),
       history: arrayUnion(buildHistoryEntry("rejected", admin, reason)),
-    });
+    })
 
     tx.set(
       calendarRef,
@@ -201,45 +252,79 @@ export async function rejectBookingRequest({ requestId, admin, reason = "" }) {
         updatedAt: serverTimestamp(),
       },
       { merge: true }
-    );
-  });
+    )
+  })
 }
 
 export async function modifyBookingRequest({ requestId, admin, updates }) {
-  const requestRef = doc(db, "bookingRequests", requestId);
+  const requestRef = doc(db, "bookingRequests", requestId)
   await runTransaction(db, async (tx) => {
-    const requestSnap = await tx.get(requestRef);
-    if (!requestSnap.exists()) throw new Error("Request not found");
-    const request = requestSnap.data();
+    const requestSnap = await tx.get(requestRef)
+    if (!requestSnap.exists()) throw new Error("Request not found")
+    const request = requestSnap.data()
 
-    const newDate = updates.date || request.date;
-    const newStart = typeof updates.startSlot === "number" ? updates.startSlot : request.startSlot;
-    const newEnd = typeof updates.endSlot === "number" ? updates.endSlot : request.endSlot;
-    validateSlotWindow({ date: newDate, startSlot: newStart, endSlot: newEnd });
+    const newDate = updates.date || request.date
+    const newStart =
+      typeof updates.startSlot === "number"
+        ? updates.startSlot
+        : request.startSlot
+    const newEnd =
+      typeof updates.endSlot === "number" ? updates.endSlot : request.endSlot
+    validateSlotWindow({ date: newDate, startSlot: newStart, endSlot: newEnd })
 
-    const currentCalendarRef = doc(db, "rooms", request.roomId, "days", request.date);
-    const currentCalendarSnap = await tx.get(currentCalendarRef);
-    const currentCalendar = ensureCalendar(currentCalendarSnap, request.roomId, request.date);
+    const currentCalendarRef = doc(
+      db,
+      "rooms",
+      request.roomId,
+      "days",
+      request.date
+    )
+    const currentCalendarSnap = await tx.get(currentCalendarRef)
+    const currentCalendar = ensureCalendar(
+      currentCalendarSnap,
+      request.roomId,
+      request.date
+    )
 
-    const cleanedSlots = removeSlots(currentCalendar.slots, request.startSlot, request.endSlot, requestId);
-    const currentPending = new Set(currentCalendar.pendingRequestIds || []);
-    currentPending.delete(requestId);
+    const cleanedSlots = removeSlots(
+      currentCalendar.slots,
+      request.startSlot,
+      request.endSlot,
+      requestId
+    )
+    const currentPending = new Set(currentCalendar.pendingRequestIds || [])
+    currentPending.delete(requestId)
 
-    const targetCalendarRef = newDate === request.date
-      ? currentCalendarRef
-      : doc(db, "rooms", request.roomId, "days", newDate);
-    const targetCalendarSnap = newDate === request.date ? currentCalendarSnap : await tx.get(targetCalendarRef);
-    const targetCalendar = newDate === request.date
-      ? { ...currentCalendar, slots: cleanedSlots, pendingRequestIds: Array.from(currentPending) }
-      : ensureCalendar(targetCalendarSnap, request.roomId, newDate);
+    const targetCalendarRef =
+      newDate === request.date
+        ? currentCalendarRef
+        : doc(db, "rooms", request.roomId, "days", newDate)
+    const targetCalendarSnap =
+      newDate === request.date
+        ? currentCalendarSnap
+        : await tx.get(targetCalendarRef)
+    const targetCalendar =
+      newDate === request.date
+        ? {
+            ...currentCalendar,
+            slots: cleanedSlots,
+            pendingRequestIds: Array.from(currentPending),
+          }
+        : ensureCalendar(targetCalendarSnap, request.roomId, newDate)
 
     if (slotsConflict(targetCalendar.slots, newStart, newEnd, requestId)) {
-      throw new Error("That updated time overlaps another booking.");
+      throw new Error("That updated time overlaps another booking.")
     }
 
-    const slots = applySlots(targetCalendar.slots, newStart, newEnd, requestId, "pending");
-    const pending = new Set(targetCalendar.pendingRequestIds || []);
-    pending.add(requestId);
+    const slots = applySlots(
+      targetCalendar.slots,
+      newStart,
+      newEnd,
+      requestId,
+      "pending"
+    )
+    const pending = new Set(targetCalendar.pendingRequestIds || [])
+    pending.add(requestId)
 
     const historyMeta = {
       from: {
@@ -248,7 +333,7 @@ export async function modifyBookingRequest({ requestId, admin, updates }) {
         endSlot: request.endSlot,
       },
       to: { date: newDate, startSlot: newStart, endSlot: newEnd },
-    };
+    }
 
     tx.update(requestRef, {
       date: newDate,
@@ -261,9 +346,14 @@ export async function modifyBookingRequest({ requestId, admin, updates }) {
       decision: "Pending admin review",
       updatedAt: serverTimestamp(),
       history: arrayUnion(
-        buildHistoryEntry("modified", admin, updates.reason || "Updated time", historyMeta)
+        buildHistoryEntry(
+          "modified",
+          admin,
+          updates.reason || "Updated time",
+          historyMeta
+        )
       ),
-    });
+    })
 
     tx.set(
       targetCalendarRef,
@@ -275,7 +365,7 @@ export async function modifyBookingRequest({ requestId, admin, updates }) {
         updatedAt: serverTimestamp(),
       },
       { merge: true }
-    );
+    )
 
     if (newDate !== request.date) {
       tx.set(
@@ -288,7 +378,7 @@ export async function modifyBookingRequest({ requestId, admin, updates }) {
           updatedAt: serverTimestamp(),
         },
         { merge: true }
-      );
+      )
     }
-  });
+  })
 }
