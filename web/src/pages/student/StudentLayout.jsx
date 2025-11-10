@@ -62,6 +62,21 @@ export default function StudentLayout() {
         <div style={{ textAlign: "right" }}>
           <div style={{ fontWeight: 600 }}>{profile?.displayName || user?.email}</div>
           <div style={{ fontSize: 12, color: "#6b7280" }}>{profile?.role || "user"}</div>
+          <div style={{ marginTop: 4 }}>
+            <NavLink
+              to="/logout"
+              style={{
+                fontSize: 12,
+                color: "#6b7280",
+                textDecoration: "none",
+                border: "1px solid #e5e7eb",
+                padding: "2px 8px",
+                borderRadius: 999,
+              }}
+            >
+              Log out
+            </NavLink>
+          </div>
         </div>
       </header>
 

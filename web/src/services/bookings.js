@@ -34,7 +34,7 @@ const buildHistoryEntry = (action, actor, notes = "", meta = {}) => ({
   },
   notes,
   meta,
-  timestamp: serverTimestamp(),
+  timestamp: new Date().toISOString(), // Use ISO string instead of serverTimestamp() for arrays
 });
 
 const applySlots = (slots = {}, startSlot, endSlot, requestId, status) => {

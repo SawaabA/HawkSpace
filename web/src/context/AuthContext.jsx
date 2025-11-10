@@ -60,7 +60,9 @@ export function AuthProvider({ children }) {
   const [state, setState] = useState({ user: null, profile: null, claims: null, loading: true });
 
   useEffect(() => {
+    console.log("AuthProvider: Setting up auth listener");
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log("AuthProvider: Auth state changed", firebaseUser ? "User logged in" : "No user");
       if (!firebaseUser) {
         setState({ user: null, profile: null, claims: null, loading: false });
         return;
@@ -79,6 +81,9 @@ export function AuthProvider({ children }) {
         console.error("Failed to sync user profile", err);
         setState({ user: firebaseUser, profile: null, claims: null, loading: false });
       }
+    }, (error) => {
+      console.error("AuthProvider: Auth listener error", error);
+      setState({ user: null, profile: null, claims: null, loading: false });
     });
     return () => unsub();
   }, []);

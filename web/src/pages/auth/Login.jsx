@@ -44,6 +44,8 @@ export default function Login() {
       footer={
         <div className="auth-footnote">
           Need an account? <Link className="auth-link" to="/signup">Sign up</Link>
+          <span style={{ margin: "0 8px", color: "#9ca3af" }}>•</span>
+          <Link className="auth-link" to="/forgot-password">Forgot password?</Link>
         </div>
       }
     >
@@ -89,6 +91,10 @@ export default function Login() {
             autoComplete={intent === "admin" ? "current-password" : "password"}
           />
         </label>
+
+        <div style={{ marginBottom: 8 }}>
+          <Link className="auth-link" to="/forgot-password">Forgot password?</Link>
+        </div>
 
         <label className="auth-remember">
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />

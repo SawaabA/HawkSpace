@@ -55,6 +55,22 @@ export default function AdminLayout() {
         <div style={{ textAlign: "right", fontSize: 14 }}>
           <div>{profile?.displayName || user?.email}</div>
           <div style={{ opacity: 0.8 }}>{profile?.role || "admin"}</div>
+          <div style={{ marginTop: 6 }}>
+            <NavLink
+              to="/logout"
+              style={{
+                fontSize: 12,
+                color: "#0ea5e9",
+                textDecoration: "none",
+                border: "1px solid rgba(255,255,255,0.3)",
+                padding: "2px 10px",
+                borderRadius: 999,
+                display: "inline-block",
+              }}
+            >
+              Log out
+            </NavLink>
+          </div>
         </div>
       </header>
       <main style={{ padding: "2rem", maxWidth: 1200, margin: "0 auto" }}>
