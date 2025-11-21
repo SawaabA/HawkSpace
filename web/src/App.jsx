@@ -13,6 +13,7 @@ import RequestBooking from "@/pages/student/RequestBooking";
 import MyRequests from "@/pages/student/MyRequests";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminRequests from "@/pages/admin/AdminRequests";
+import AdminReports from "@/pages/admin/AdminReports";
 
 function NotFound() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<AdminRequests />} />
           <Route path="/admin/requests" element={<AdminRequests />} />
+           <Route path="/admin/reports" element={<AdminReports />} />
         </Route>
       </Route>
 
