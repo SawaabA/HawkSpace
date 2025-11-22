@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signInWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import AuthLayout from "@/components/AuthLayout";
 import { auth, db } from "@/services/firebase";
@@ -26,11 +26,7 @@ export default function Signup() {
       }
 
       const cred = await createUserWithEmailAndPassword(auth, eLower, password);
-
-      if (displayName) {
-        await updateProfile(cred.user, { displayName });
-      }
-
+      if (displayName) await updateProfile(cred.user, { displayName });
       await setDoc(doc(db, "users", cred.user.uid), {
         uid: cred.user.uid,
         email: cred.user.email,
@@ -38,38 +34,17 @@ export default function Signup() {
         createdAt: serverTimestamp(),
       });
 
-      // TEMPORARY: Skip verification email for now
-      // TODO: Re-enable once email delivery is fixed
-      // try {
-      //   console.log("Attempting to send verification email to:", cred.user.email);
-      //   await sendEmailVerification(cred.user, {
-      //     url: window.location.origin + '/login',
-      //     handleCodeInApp: false
-      //   });
-      //   console.log("Verification email sent successfully");
-      // } catch (verifyErr) {
-      //   console.error("Failed to send verification email:", verifyErr);
-      //   console.error("Error code:", verifyErr?.code);
-      //   console.error("Error message:", verifyErr?.message);
-      // }
-
-      try {
-        const analytics = await getAnalyticsInstance();
-        if (analytics) {
-          const { logEvent } = await import("firebase/analytics");
-          logEvent(analytics, "sign_up", { method: "password" });
-        }
-      } catch (err) {
-        console.warn("Failed to log analytics event:", err);
+      const analytics = await getAnalyticsInstance();
+      if (analytics) {
+        const { logEvent } = await import("firebase/analytics");
+        logEvent(analytics, "sign_up", { method: "password" });
       }
 
-      // TEMPORARY: Go directly to search instead of verification page
       navigate("/search", { replace: true });
     } catch (err) {
       if (err?.code === "auth/email-already-in-use") {
         try {
-          const cred = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
-          // TEMPORARY: Skip verification check, go directly to search
+          await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
           navigate("/search", { replace: true });
           return;
         } catch (signinErr) {
@@ -95,42 +70,44 @@ export default function Signup() {
       {error && <div className="auth-error">{error}</div>}
 
       <form className="auth-form" onSubmit={onSubmit}>
-        <div className="auth-field">
-          <label className="auth-label">Full name</label>
+        {/* Full name */}
+        <div className="auth-box">
           <input
-            className="auth-input"
             type="text"
-            placeholder="Jane Doe"
+            className="auth-input"
+            placeholder=" "
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />
+          <label className="auth-label">Full Name</label>
         </div>
 
-        <div className="auth-field">
-          <label className="auth-label">Laurier Email</label>
+        {/* Email */}
+        <div className="auth-box">
           <input
-            className="auth-input"
             type="email"
-            inputMode="email"
-            placeholder={`you${ALLOWED_DOMAIN}`}
+            className="auth-input"
+            placeholder=" "
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="username"
             required
           />
+          <label className="auth-label">Laurier Email</label>
         </div>
 
-        <div className="auth-field">
-          <label className="auth-label">Password</label>
+        {/* Password */}
+        <div className="auth-box">
           <input
-            className="auth-input"
             type="password"
-            placeholder="Create a strong password"
+            className="auth-input"
+            placeholder=" "
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
             required
           />
+          <label className="auth-label">Password</label>
         </div>
 
         <button className="auth-btn" type="submit" disabled={loading}>
