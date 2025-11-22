@@ -1,0 +1,100 @@
+/* Import Google Font at the top */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+.homepage {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: black;
+  text-align: center;
+  color: #fff;
+  padding: 2rem;
+  font-family: 'Poppins', sans-serif; 
+}
+
+/* Neon glowing title */
+.neon-text {
+    font-size: 5rem;
+    font-family: 'Poppins', sans-serif;
+    color: #00aaff;
+    position: relative;
+  
+    /* Main smooth glow using only 2 layers */
+    text-shadow:
+      0 0 8px #00aaff,
+      0 0 20px #00aaff;
+  
+    /* Smooth GPU rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  
+    /* Pulse animation */
+    animation: glowPulse 2s ease-in-out infinite alternate;
+  }
+  
+  /* Smooth glow pulse animation */
+  @keyframes glowPulse {
+    0% {
+      text-shadow:
+        0 0 4px #00aaff,
+        0 0 15px #00aaff;
+    }
+    100% {
+      text-shadow:
+        0 0 12px #00aaff,
+        0 0 25px #00aaff;
+    }
+  }
+  
+  
+
+/* Subtitle under title */
+.subtitle {
+  font-size: 1.5rem;
+  margin-top: 1rem;
+  max-width: 700px;
+  color: #ffffff; 
+  text-shadow: none;
+  font-weight: 400;
+}
+
+/* Book Now button */
+.btn.book-btn {
+  margin-top: 2rem;
+  font-size: 1.2rem;
+  color: #00aaff;
+  background: none;
+  border: 2px solid #00aaff;
+  padding: 0.8rem 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.3s;
+  font-weight: 600;
+}
+
+.btn.book-btn:hover {
+  background-color: #00aaff;
+  color: black;
+  box-shadow: 0 0 20px #00aaff;
+}
+
+/* Upcoming events section */
+.upcoming-events {
+  margin-top: 4rem;
+  color: #ffffff; 
+  text-shadow: none;
+  font-weight: 400;
+}
+
+.upcoming-events h2 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.upcoming-events p {
+  font-size: 1.2rem;
+}
