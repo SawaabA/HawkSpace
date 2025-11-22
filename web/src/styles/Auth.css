@@ -7,10 +7,14 @@
 }
 .auth-card {
   width: 380px;
+  min-height: 480px;
+  max-height: 600px;
   background: #ffffff;
   border-radius: 1rem;
   box-shadow: 0 18px 40px rgba(0,0,0,.08);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .auth-header {
   padding: 22px 22px 10px;
@@ -31,7 +35,14 @@
   opacity: .9; font-size: .9rem; margin: 6px 0 0;
 }
 
-.auth-body { padding: 22px; display: grid; gap: 14px; }
+.auth-body { 
+  padding: 34px 28px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 18px; 
+  flex-grow: 1; 
+  justify-content: space-between;
+}
 .auth-subtitle { margin: -8px 0 4px; color: #6b7280; font-size: .92rem; }
 .auth-title { margin: 0 0 6px; font-size: 1.35rem; font-weight: 800; color: #111827; }
 .auth-form { display: grid; gap: 12px; }
@@ -59,8 +70,16 @@
 .auth-hint { font-size: .8rem; color: #6b7280; }
 
 .auth-btn {
-  appearance: none; border: none; border-radius: 10px; padding: 12px;
-  font-weight: 700; color: white; background: #5a287d; cursor: pointer;
+  margin-top: 1rem;
+  padding: 1rem;          
+  font-size: 1.1rem;      
+  background-color: #2c3e50;
+  color: white;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;      
+  cursor: pointer;
+  width: 100%;             
   transition: transform .05s ease, background .15s ease;
 }
 .auth-btn:hover { background: #4a2168; }
@@ -73,8 +92,10 @@
   padding: 10px 12px; border-radius: 10px; font-size: .9rem;
 }
 .auth-footer {
-  padding: 16px 22px; border-top: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 22px; 
+  border-top: 1px solid #f3f4f6;
   background: #fcfcfd;
+  flex-shrink: 0;
 }
 .auth-link { color: #5a287d; text-decoration: none; font-weight: 700; }
 .auth-footnote { font-size: .85rem; color: #6b7280; }
@@ -82,4 +103,42 @@
 .badge {
   display: inline-flex; align-items: center; gap: 6px;
   background: #ede9fe; color: #4c1d95; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: .75rem;
+}
+/* Floating label container */
+.auth-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.75rem;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  background: #f9fafb;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.auth-label {
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: 500;
+  pointer-events: none;
+  transition: 0.2s ease all;
+  background: white;
+  padding: 0 0.25rem;
+}
+
+.auth-input:focus + .auth-label,
+.auth-input:not(:placeholder-shown) + .auth-label {
+  top: -8px;
+  font-size: 0.75rem;
+  color: #5a287d;
 }

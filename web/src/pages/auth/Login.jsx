@@ -65,35 +65,32 @@ export default function Login() {
       {error && <div className="auth-error">{error}</div>}
 
       <form className="auth-form" onSubmit={onSubmit}>
-        <label className="auth-label">
-          Laurier Email
+        {/* Email */}
+        <div className="auth-box">
           <input
-            className="auth-input"
             type="email"
-            inputMode="email"
-            placeholder={`you${ALLOWED_DOMAIN}`}
+            className="auth-input"
+            placeholder=" "
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="username"
           />
-        </label>
+          <label className="auth-label">Laurier Email</label>
+        </div>
 
-        <label className="auth-label">
-          Password
+        {/* Password */}
+        <div className="auth-box">
           <input
-            className="auth-input"
             type="password"
-            placeholder="Enter your password"
+            className="auth-input"
+            placeholder=" "
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete={intent === "admin" ? "current-password" : "password"}
           />
-        </label>
-
-        <div style={{ marginBottom: 8 }}>
-          <Link className="auth-link" to="/forgot-password">Forgot password?</Link>
+          <label className="auth-label">Password</label>
         </div>
 
         <label className="auth-remember">

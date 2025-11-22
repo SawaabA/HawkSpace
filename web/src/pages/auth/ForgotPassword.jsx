@@ -22,18 +22,12 @@ export default function ForgotPassword() {
     }
     setSubmitting(true);
     try {
-      console.log("Attempting to send password reset email to:", eLower);
       await sendPasswordResetEmail(auth, eLower, {
         url: `${window.location.origin}/login`,
         handleCodeInApp: false,
       });
-      console.log("Password reset email sent successfully");
       setStatus("If an account exists for this email, a reset link has been sent.");
     } catch (err) {
-      console.error("Failed to send password reset email:", err);
-      console.error("Error code:", err?.code);
-      console.error("Error message:", err?.message);
-      // For security, avoid leaking whether an email exists
       setStatus("If an account exists for this email, a reset link has been sent.");
     } finally {
       setSubmitting(false);
@@ -50,19 +44,19 @@ export default function ForgotPassword() {
       {status && <div className="auth-success">{status}</div>}
 
       <form className="auth-form" onSubmit={onSubmit}>
-        <label className="auth-label">
-          Laurier Email
+        {/* Floating label: Email */}
+        <div className="auth-box">
           <input
-            className="auth-input"
             type="email"
-            inputMode="email"
-            placeholder={`you${ALLOWED_DOMAIN}`}
+            className="auth-input"
+            placeholder=" "
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="username"
           />
-        </label>
+          <label className="auth-label">Laurier Email</label>
+        </div>
 
         <button className="auth-btn" type="submit" disabled={submitting}>
           {submitting ? "Sending…" : "Send reset link"}
@@ -71,5 +65,3 @@ export default function ForgotPassword() {
     </AuthLayout>
   );
 }
-
-
