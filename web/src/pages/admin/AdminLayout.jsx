@@ -1,7 +1,11 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 
-const links = [{ to: "/admin/requests", label: "Requests" }];
+const links = [
+  { to: "/admin/requests", label: "Requests" },
+  { to: "/admin/reports", label: "Reports" },
+];
+
 
 export default function AdminLayout() {
   const { profile, user } = useAuth();
