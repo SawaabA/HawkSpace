@@ -14,10 +14,10 @@ import {
 import { MAX_BOOKING_HOURS, MAX_SLOTS_PER_BOOKING, OPERATING_TIMEZONE, TOTAL_SLOTS } from "@/constants/schedule";
 
 const statusColors = {
-  available: "#ecfccb",
-  pending: "#fef3c7",
-  modified: "#e0e7ff",
-  approved: "#fee2e2",
+  available: "#f4f0ff",
+  pending: "#fff1cc",
+  modified: "#dfe7ff",
+  approved: "#e2f8ec",
 };
 
 export default function RequestBooking() {
@@ -30,7 +30,13 @@ export default function RequestBooking() {
   const initialRoom = params.get("roomId");
   const initialDate = params.get("date") || getDefaultDate();
   const initialStart = params.get("startSlot") ? Number(params.get("startSlot")) : null;
-  const initialEnd = initialStart != null ? Math.min(initialStart + 2, TOTAL_SLOTS) : null;
+  const urlEndSlot = params.get("endSlot");
+  const initialEnd =
+    urlEndSlot != null
+      ? Number(urlEndSlot)
+      : initialStart != null
+        ? Math.min(initialStart + 2, TOTAL_SLOTS)
+        : null;
 
   const [roomId, setRoomId] = useState(initialRoom || "");
   const [date, setDate] = useState(initialDate);
@@ -108,24 +114,32 @@ export default function RequestBooking() {
 
   if (successId) {
     return (
-      <div>
-        <h1>Request submitted ✅</h1>
+      <section className="student-section">
+        <div className="chip">Request submitted</div>
+        <h2>We&apos;ve received your booking</h2>
         <p>Tracking ID: <code>{successId}</code></p>
         <p>You&apos;ll receive an email when an admin reviews the request.</p>
-        <button onClick={() => navigate("/my-requests")}>View my requests</button>
-      </div>
+        <button type="button" className="primary-btn" onClick={() => navigate("/my-requests")}>
+          View my requests
+        </button>
+      </section>
     );
   }
 
   return (
-    <div>
-      <h1>Request a Classroom</h1>
-      <p style={{ color: "#6b7280", marginTop: -6 }}>Maximum duration {MAX_BOOKING_HOURS} hours ({OPERATING_TIMEZONE}).</p>
+    <section className="student-section">
+      <header style={{ marginBottom: "1.5rem" }}>
+        <div className="chip">Request a space</div>
+        <h2>Request a Classroom</h2>
+        <p style={{ color: "#6d6785", margin: 0 }}>
+          Maximum duration {MAX_BOOKING_HOURS} hours ({OPERATING_TIMEZONE}). Tell us what you need and we&apos;ll do the rest.
+        </p>
+      </header>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1.2rem", maxWidth: 720 }}>
-        <label style={labelStyle}>
+        <label className="filter-field">
           Room
-          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} style={inputStyle} required>
+          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="filter-input" required>
             <option value="">Select a room</option>
             {rooms.map((room) => (
               <option key={room.id} value={room.id}>
@@ -135,13 +149,13 @@ export default function RequestBooking() {
           </select>
         </label>
 
-        <label style={labelStyle}>
+        <label className="filter-field">
           Date
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} required />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="filter-input" required />
         </label>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem" }}>
-          <label style={labelStyle}>
+          <label className="filter-field">
             Start time
             <select
               value={startSlot ?? ""}
@@ -152,7 +166,7 @@ export default function RequestBooking() {
                   setEndSlot(Math.min(slot + 2, TOTAL_SLOTS));
                 }
               }}
-              style={inputStyle}
+              className="filter-input"
               required
             >
               <option value="">Select…</option>
@@ -164,12 +178,12 @@ export default function RequestBooking() {
             </select>
           </label>
 
-          <label style={labelStyle}>
+          <label className="filter-field">
             End time
             <select
               value={endSlot ?? ""}
               onChange={(e) => setEndSlot(Number(e.target.value))}
-              style={inputStyle}
+              className="filter-input"
               required
               disabled={startSlot == null}
             >
@@ -183,41 +197,39 @@ export default function RequestBooking() {
           </label>
         </div>
 
-        <label style={labelStyle}>
+        <label className="filter-field">
           Notes (optional)
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            style={{ ...inputStyle, resize: "vertical" }}
+            className="filter-input"
+            style={{ resize: "vertical" }}
             placeholder="Club name, setup needs, etc."
           />
         </label>
 
-        {error && <div style={{ color: "#b91c1c" }}>{error}</div>}
-        {conflict && <div style={{ color: "#92400e" }}>Selected time overlaps an approved or pending request.</div>}
+        {error && <div style={{ color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+        {conflict && <div style={{ color: "#92400e", fontWeight: 600 }}>Selected time overlaps an approved or pending request.</div>}
 
         <button
           type="submit"
           disabled={submitting || conflict}
+          className="primary-btn"
           style={{
-            padding: "0.9rem 1.4rem",
-            borderRadius: 12,
-            border: "none",
-            background: conflict ? "#cbd5f5" : "#4338ca",
-            color: "white",
-            fontWeight: 600,
-            cursor: conflict ? "not-allowed" : "pointer",
+            opacity: submitting || conflict ? 0.7 : 1,
+            cursor: submitting || conflict ? "not-allowed" : "pointer",
+            width: "fit-content",
           }}
         >
           {submitting ? "Submitting…" : "Submit request"}
         </button>
       </form>
 
-      <section style={{ marginTop: "2rem" }}>
-        <h2>
+      <section className="timeline-panel" style={{ marginTop: "2rem" }}>
+        <h3>
           Timeline — {selectedRoom ? selectedRoom.displayName || selectedRoom.name : "Pick a room"}
-        </h2>
+        </h3>
         <p style={{ color: "#6b7280", marginTop: -8 }}>{formatDateWithWeekday(date)}</p>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
           {Object.entries(statusColors).map(([status, color]) => (
@@ -227,17 +239,15 @@ export default function RequestBooking() {
             </span>
           ))}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 6 }}>
+        <div className="timeline-grid">
           {timelineSlots.map((slot) => (
             <div
               key={slot.slot}
+              className="timeline-cell"
               style={{
-                padding: ".45rem .4rem",
-                borderRadius: 10,
-                border: slot.isSelected ? "2px solid #4338ca" : "1px solid #e5e7eb",
-                background: statusColors[slot.status] || "#ecfccb",
-                fontSize: 12,
-                textAlign: "center",
+                background: slot.isSelected ? "#ffd86f" : statusColors[slot.status] || "#f4f0ff",
+                border: slot.isSelected ? "2px solid #3b1764" : undefined,
+                color: slot.isSelected ? "#3b1764" : undefined,
               }}
             >
               {slot.label}
@@ -247,16 +257,6 @@ export default function RequestBooking() {
           ))}
         </div>
       </section>
-    </div>
+    </section>
   );
 }
-
-const labelStyle = { display: "grid", gap: 6, fontSize: 14, color: "#111827" };
-const inputStyle = {
-  width: "100%",
-  padding: ".6rem .75rem",
-  borderRadius: 10,
-  border: "1px solid #cbd5f5",
-  fontSize: 16,
-  background: "#fff",
-};

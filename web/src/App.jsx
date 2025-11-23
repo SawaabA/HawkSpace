@@ -11,6 +11,7 @@ import StudentLayout from "@/pages/student/StudentLayout";
 import SearchAvailability from "@/pages/student/SearchAvailability";
 import RequestBooking from "@/pages/student/RequestBooking";
 import MyRequests from "@/pages/student/MyRequests";
+import Events from "@/pages/student/Events";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminRequests from "@/pages/admin/AdminRequests";
 
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/search" replace />} />
           <Route path="/search" element={<SearchAvailability />} />
           <Route path="/request" element={<RequestBooking />} />
+          <Route path="/events" element={<Events />} />
           <Route path="/my-requests" element={<MyRequests />} />
         </Route>
       </Route>
