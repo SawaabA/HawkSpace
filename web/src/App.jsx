@@ -13,6 +13,7 @@ import RequestBooking from "@/pages/student/RequestBooking";
 import MyRequests from "@/pages/student/MyRequests";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminRequests from "@/pages/admin/AdminRequests";
+import Home from "@/pages/home/Home";
 
 function NotFound() {
   return (
@@ -26,6 +27,7 @@ function NotFound() {
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<Home />} />
       <Route element={<UnauthRoute />}>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
