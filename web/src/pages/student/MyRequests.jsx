@@ -3,38 +3,39 @@ import { useAuth } from "@/context/AuthContext";
 import { describeSlotRange, formatDateWithWeekday } from "@/utils/slots";
 
 const statusPalette = {
-  pending: { bg: "#fef3c7", color: "#92400e" },
-  approved: { bg: "#dcfce7", color: "#166534" },
-  modified: { bg: "#e0e7ff", color: "#312e81" },
-  rejected: { bg: "#fee2e2", color: "#991b1b" },
-  cancelled: { bg: "#f1f5f9", color: "#475467" },
+  pending: { bg: "#fff1cc", color: "#8b6500" },
+  approved: { bg: "#e2f8ec", color: "#0f683b" },
+  modified: { bg: "#ede7ff", color: "#382a73" },
+  rejected: { bg: "#ffe2e2", color: "#8a1f1f" },
+  cancelled: { bg: "#f5f3ff", color: "#5f5a7f" },
 };
 
 export default function MyRequests() {
   const { user } = useAuth();
   const { requests, loading } = useBookingRequests({ requestedBy: user?.uid });
 
-  if (!user) return <p>Please sign in to view your requests.</p>;
+  if (!user) {
+    return (
+      <section className="student-section">
+        <p>Please sign in to view your requests.</p>
+      </section>
+    );
+  }
 
   return (
-    <div>
-      <h1>My Requests</h1>
+    <section className="student-section">
+      <div className="chip">My Requests</div>
+      <h2>Requests you&apos;ve submitted</h2>
       <p style={{ color: "#64748b", marginTop: -6 }}>Cancellations will be available in a future update.</p>
 
       {loading && <p>Loading…</p>}
       {!loading && requests.length === 0 && <p>No requests yet.</p>}
 
-      <div style={{ display: "grid", gap: "1rem" }}>
+      <div className="requests-stack">
         {requests.map((req) => (
           <article
             key={req.id}
-            style={{
-              padding: "1rem",
-              borderRadius: 16,
-              border: "1px solid #e5e7eb",
-              background: "white",
-              boxShadow: "0 6px 18px rgba(15,23,42,0.04)",
-            }}
+            className="request-card"
           >
             <header style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
               <div>
@@ -71,7 +72,7 @@ export default function MyRequests() {
           </article>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 

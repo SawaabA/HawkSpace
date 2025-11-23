@@ -12,10 +12,10 @@ import {
 const equipmentOptions = ["projector", "whiteboard", "speakers", "mic", "hdmi"];
 
 const statusColors = {
-  available: "#ecfccb",
-  pending: "#fef3c7",
-  modified: "#e0e7ff",
-  approved: "#fee2e2",
+  available: "#f4f0ff",
+  pending: "#fff1cc",
+  modified: "#dfe7ff",
+  approved: "#e2f8ec",
 };
 
 export default function SearchAvailability() {
@@ -76,23 +76,19 @@ export default function SearchAvailability() {
   };
 
   return (
-    <div>
-      <h1>Find a Classroom</h1>
-      <p style={{ color: "#475467", marginTop: -6 }}>
-        Monday–Friday, 08:30–23:00 ({OPERATING_TIMEZONE}). Pending requests are shown as amber slots.
-      </p>
+    <section className="student-section">
+      <header style={{ marginBottom: "1.5rem" }}>
+        <div className="chip">Search Available Rooms</div>
+        <h2 style={{ marginBottom: 8 }}>Search Laurier rooms</h2>
+        <p style={{ color: "#5f5976", margin: 0 }}>
+          Monday–Friday, 08:30–23:00 ({OPERATING_TIMEZONE}). Pending requests show in gold so you know what&apos;s queued.
+        </p>
+      </header>
 
-      <section
-        style={{
-          marginTop: "1.5rem",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "1rem",
-        }}
-      >
-        <label style={labelStyle}>
+      <div className="filter-grid">
+        <label className="filter-field">
           Building
-          <select value={building} onChange={(e) => setBuilding(e.target.value)} style={inputStyle}>
+          <select value={building} onChange={(e) => setBuilding(e.target.value)} className="filter-input">
             <option value="">Any</option>
             {[...new Set(rooms.map((room) => room.building))].map((b) => (
               <option key={b} value={b}>{b}</option>
@@ -100,10 +96,10 @@ export default function SearchAvailability() {
           </select>
         </label>
 
-        <label style={labelStyle}>
+        <label className="filter-field">
           Min capacity
           <input
-            style={inputStyle}
+            className="filter-input"
             type="number"
             min={0}
             placeholder="e.g. 20"
@@ -112,33 +108,26 @@ export default function SearchAvailability() {
           />
         </label>
 
-        <label style={labelStyle}>
+        <label className="filter-field">
           Date
           <input
-            style={inputStyle}
+            className="filter-input"
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
         </label>
-      </section>
+      </div>
 
-      <div style={{ marginTop: "1rem" }}>
-        <span style={{ fontWeight: 600 }}>Equipment</span>
-        <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap", marginTop: ".4rem" }}>
+      <div>
+        <span style={{ fontWeight: 600, color: "#38244f" }}>Equipment</span>
+        <div className="equipment-pills" style={{ marginTop: ".4rem" }}>
           {equipmentOptions.map((eq) => (
             <button
               key={eq}
               type="button"
               onClick={() => toggleEquip(eq)}
-              style={{
-                padding: ".35rem .75rem",
-                borderRadius: "999px",
-                border: requiredEquip.includes(eq) ? "1px solid #4338ca" : "1px solid #d1d5db",
-                background: requiredEquip.includes(eq) ? "#eef2ff" : "white",
-                textTransform: "capitalize",
-                cursor: "pointer",
-              }}
+              className={requiredEquip.includes(eq) ? "equipment-pill active" : "equipment-pill"}
             >
               {eq}
             </button>
@@ -146,73 +135,60 @@ export default function SearchAvailability() {
         </div>
       </div>
 
-      <section style={{ marginTop: "2rem", display: "flex", gap: "2rem" }}>
-        <div style={{ flex: 1 }}>
-          <h2>Matching rooms ({filteredRooms.length})</h2>
-          {loading && <p>Loading rooms…</p>}
+      <section style={{ marginTop: "2rem", display: "flex", flexWrap: "wrap", gap: "1.75rem" }}>
+        <div style={{ flex: "1 1 320px" }}>
+          <div className="chip">Matching rooms ({filteredRooms.length})</div>
+          {loading && <p style={{ color: "#6d6785" }}>Loading rooms…</p>}
           {!loading && filteredRooms.length === 0 && <p>No rooms match those filters.</p>}
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "0.8rem" }}>
+          <div className="room-grid">
             {filteredRooms.map((room) => (
-              <li
+              <div
                 key={room.id}
                 onClick={() => setSelectedRoomId(room.id)}
-                style={{
-                  border: room.id === selectedRoomId ? "2px solid #4338ca" : "1px solid #e5e7eb",
-                  borderRadius: 16,
-                  padding: "1rem",
-                  background: "white",
-                  cursor: "pointer",
-                }}
+                className={room.id === selectedRoomId ? "room-card active" : "room-card"}
               >
                 <div style={{ fontWeight: 600 }}>{room.displayName || room.name || room.id}</div>
-                <div style={{ color: "#6b7280", fontSize: 14 }}>{room.building}</div>
-                <div style={{ fontSize: 14 }}>
+                <div style={{ color: "#6b6787", fontSize: 14 }}>{room.building}</div>
+                <div style={{ fontSize: 14, color: "#504567" }}>
                   Capacity {room.capacity || "—"} · {(room.equipment || []).join(", ") || "No equipment listed"}
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
 
-        <div style={{ flex: 1.2 }}>
-          <h2>Timeline — {selectedRoom ? selectedRoom.displayName || selectedRoom.name : "Select a room"}</h2>
-          <p style={{ color: "#6b7280", marginTop: -8 }}>{formatDateWithWeekday(date)}</p>
+        <div className="timeline-panel">
+          <header style={{ marginBottom: "0.5rem" }}>
+            <h3 style={{ marginBottom: 0 }}>
+              Timeline — {selectedRoom ? selectedRoom.displayName || selectedRoom.name : "Select a room"}
+            </h3>
+            <p style={{ color: "#6d6785", marginTop: 4 }}>{formatDateWithWeekday(date)}</p>
+          </header>
           {selectedRoom ? (
-            <div>
+            <>
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
                   gap: 10,
                   marginBottom: 18,
                 }}
               >
                 {Object.entries(statusColors).map(([status, color]) => (
-                  <div key={status} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div key={status} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
                     <span style={{ width: 16, height: 16, background: color, borderRadius: 4 }} />
-                    <span style={{ textTransform: "capitalize", fontSize: 13 }}>{status}</span>
+                    <span style={{ textTransform: "capitalize" }}>{status}</span>
                   </div>
                 ))}
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))",
-                  gap: 6,
-                }}
-              >
+              <div className="timeline-grid">
                 {timelineSlots.map((slot) => (
                   <div
                     key={slot.slot}
+                    className="timeline-cell"
                     style={{
-                      padding: ".4rem",
-                      borderRadius: 10,
-                      background: statusColors[slot.status] || "#ecfccb",
-                      border: "1px solid #e5e7eb",
-                      fontSize: 12,
-                      textAlign: "center",
-                      textTransform: "uppercase",
+                      background: statusColors[slot.status] || "#f4f0ff",
                     }}
                   >
                     {slot.label}
@@ -222,36 +198,15 @@ export default function SearchAvailability() {
                 ))}
               </div>
 
-              <button
-                type="button"
-                onClick={startRequest}
-                style={{
-                  marginTop: "1.5rem",
-                  background: "#4338ca",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 12,
-                  padding: ".75rem 1.5rem",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                }}
-              >
+              <button type="button" onClick={startRequest} className="primary-btn" style={{ marginTop: "1.5rem" }}>
                 Request this room
               </button>
-            </div>
+            </>
           ) : (
             <p>Select a room to view availability.</p>
           )}
         </div>
       </section>
-    </div>
+    </section>
   );
 }
-
-const labelStyle = { display: "grid", gap: 6, fontSize: 14, color: "#1f2933" };
-const inputStyle = {
-  padding: ".5rem .75rem",
-  borderRadius: 10,
-  border: "1px solid #cbd5f5",
-  fontSize: 16,
-};

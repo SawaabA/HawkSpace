@@ -1,9 +1,13 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import "@/styles/student.css";
+import { featuredEvent } from "@/data/events";
+import { LAURIER_CAMPUS_PAGE } from "@/constants/branding";
 
 const links = [
-  { to: "/search", label: "Search" },
-  { to: "/request", label: "Request" },
+  { to: "/search", label: "Find a Space" },
+  { to: "/request", label: "Request a Room" },
+  { to: "/events", label: "Events" },
   { to: "/my-requests", label: "My Requests" },
 ];
 
@@ -11,34 +15,24 @@ export default function StudentLayout() {
   const { profile, user, isAdmin } = useAuth();
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f4f6fb" }}>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "1rem 2rem",
-          background: "white",
-          borderBottom: "1px solid #e5e7eb",
-        }}
-      >
-        <div>
-          <strong>HawkSpace</strong>
-          <div style={{ fontSize: 13, color: "#6b7280" }}>America/Toronto</div>
+    <div className="student-shell">
+      <header className="student-header">
+        <div className="student-brand">
+          <div className="mark">LH</div>
+          <div>
+            <div style={{ textTransform: "uppercase", letterSpacing: 2, fontSize: 12, color: "#8b80a5" }}>
+              Laurier Campus
+            </div>
+            <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: 0.2 }}>HawkSpace</div>
+          </div>
         </div>
-        <nav style={{ display: "flex", gap: "0.75rem" }}>
+
+        <nav className="student-nav">
           {links.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
-              style={({ isActive }) => ({
-                padding: ".5rem 1rem",
-                borderRadius: "999px",
-                textDecoration: "none",
-                fontWeight: 600,
-                color: isActive ? "white" : "#232323",
-                background: isActive ? "#4338ca" : "transparent",
-              })}
+              className={({ isActive }) => (isActive ? "active" : "")}
             >
               {link.label}
             </NavLink>
@@ -46,41 +40,75 @@ export default function StudentLayout() {
           {isAdmin && (
             <NavLink
               to="/admin/requests"
-              style={{
-                padding: ".5rem 1rem",
-                borderRadius: "999px",
-                textDecoration: "none",
-                fontWeight: 600,
-                color: "#111827",
-                border: "1px solid #c7d2fe",
-              }}
+              className={({ isActive }) => (isActive ? "active" : "")}
             >
               Admin
             </NavLink>
           )}
         </nav>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontWeight: 600 }}>{profile?.displayName || user?.email}</div>
-          <div style={{ fontSize: 12, color: "#6b7280" }}>{profile?.role || "user"}</div>
-          <div style={{ marginTop: 4 }}>
-            <NavLink
-              to="/logout"
-              style={{
-                fontSize: 12,
-                color: "#6b7280",
-                textDecoration: "none",
-                border: "1px solid #e5e7eb",
-                padding: "2px 8px",
-                borderRadius: 999,
-              }}
-            >
+        <div className="student-user">
+          <div style={{ fontWeight: 700 }}>{profile?.displayName || user?.email}</div>
+          <div style={{ fontSize: 12 }}>
+            {profile?.role || "Student"} · <span style={{ color: "#a398c6" }}>America/Toronto</span>
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <NavLink to="/logout" className="logout-link">
               Log out
             </NavLink>
           </div>
         </div>
       </header>
 
-      <main style={{ padding: "2rem", maxWidth: 1100, margin: "0 auto" }}>
+      <section className="student-hero">
+        <div style={{ position: "relative", zIndex: 2 }}>
+          <div className="hero-eyebrow">Wilfrid Laurier University</div>
+          <h1 className="hero-title">Welcome Golden Hawk!</h1>
+          <p style={{ maxWidth: 480, fontSize: "1.05rem", lineHeight: 1.6 }}>
+            Book study halls, lecture rooms, and event spaces with the same energy you bring to campus life.
+            We keep the process fast, transparent, and unmistakably Laurier.
+          </p>
+          <div className="hero-actions">
+            <NavLink to="/request" className="primary-btn">
+              Book Now
+            </NavLink>
+            <Link to="/events#events-calendar" className="secondary-btn">
+              Full Events Calendar
+            </Link>
+          </div>
+        </div>
+        {featuredEvent && (
+          <div className="hero-card">
+            <span className="chip">Next event</span>
+            <h4>{featuredEvent.title}</h4>
+            <div style={{ fontSize: 14 }}>
+              {featuredEvent.date} · {featuredEvent.time}
+            </div>
+            <div style={{ fontSize: 14, opacity: 0.9 }}>{featuredEvent.location}</div>
+            <p style={{ margin: "0.35rem 0 0.5rem" }}>{featuredEvent.description}</p>
+            <NavLink to="/events" className="cta-link">
+              See details →
+            </NavLink>
+          </div>
+        )}
+      </section>
+
+      <section className="campus-highlight">
+        <div className="campus-card">
+          <div className="campus-copy">
+            <span className="chip purple">Campuses & Locations</span>
+            <h3>Tour Laurier spaces before you book</h3>
+            <p>
+              Need inspiration? See where Waterloo, Brantford, and Milton campuses shine, then bring that energy to
+              HawkSpace bookings.
+            </p>
+            <a className="secondary-btn light" href={LAURIER_CAMPUS_PAGE} target="_blank" rel="noreferrer">
+              Visit Laurier campuses
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <main className="student-main">
         <Outlet />
       </main>
     </div>
