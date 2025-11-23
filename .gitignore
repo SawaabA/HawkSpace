@@ -206,10 +206,9 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-package-lock.json
-web/package-lock.json
-web/package.json
-web/jsconfig.json
+node_modules/
+web/node_modules/
+
 web/serviceAccountKey.json
 
 notes/
