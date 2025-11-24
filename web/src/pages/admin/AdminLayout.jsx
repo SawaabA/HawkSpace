@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 
 const links = [
   { to: "/admin/requests", label: "Requests" },
@@ -9,6 +10,7 @@ const links = [
 
 export default function AdminLayout() {
   const { profile, user } = useAuth();
+  const { highContrast, toggleHighContrast } = useTheme();
   return (
     <div style={{ minHeight: "100vh", background: "#f1f5f9" }}>
       <header
@@ -56,24 +58,42 @@ export default function AdminLayout() {
             Student view
           </NavLink>
         </nav>
-        <div style={{ textAlign: "right", fontSize: 14 }}>
-          <div>{profile?.displayName || user?.email}</div>
-          <div style={{ opacity: 0.8 }}>{profile?.role || "admin"}</div>
-          <div style={{ marginTop: 6 }}>
-            <NavLink
-              to="/logout"
-              style={{
-                fontSize: 12,
-                color: "#0ea5e9",
-                textDecoration: "none",
-                border: "1px solid rgba(255,255,255,0.3)",
-                padding: "2px 10px",
-                borderRadius: 999,
-                display: "inline-block",
-              }}
-            >
-              Log out
-            </NavLink>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <button
+            onClick={toggleHighContrast}
+            aria-label={highContrast ? "Disable high contrast mode" : "Enable high contrast mode"}
+            title={highContrast ? "Disable high contrast mode" : "Enable high contrast mode"}
+            style={{
+              padding: ".5rem",
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.3)",
+              background: highContrast ? "white" : "rgba(255,255,255,0.15)",
+              color: highContrast ? "#0f172a" : "white",
+              cursor: "pointer",
+              fontSize: 18,
+            }}
+          >
+            {highContrast ? "🔆" : "◐"}
+          </button>
+          <div style={{ textAlign: "right", fontSize: 14 }}>
+            <div>{profile?.displayName || user?.email}</div>
+            <div style={{ opacity: 0.8 }}>{profile?.role || "admin"}</div>
+            <div style={{ marginTop: 6 }}>
+              <NavLink
+                to="/logout"
+                style={{
+                  fontSize: 12,
+                  color: "#0ea5e9",
+                  textDecoration: "none",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  padding: "2px 10px",
+                  borderRadius: 999,
+                  display: "inline-block",
+                }}
+              >
+                Log out
+              </NavLink>
+            </div>
           </div>
         </div>
       </header>

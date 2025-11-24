@@ -28,8 +28,12 @@ export function useBookingRequests(filters = {}) {
       }
     }
 
-    constraints.push(orderBy("date", "asc"));
-    constraints.push(orderBy("startSlot", "asc"));
+    // Only add orderBy if we're not using status "in" query (which would require composite index)
+    const hasStatusIn = parsed.status && Array.isArray(parsed.status) && parsed.status.length > 1;
+    if (!hasStatusIn) {
+      constraints.push(orderBy("date", "asc"));
+      constraints.push(orderBy("startSlot", "asc"));
+    }
     if (parsed.limit) constraints.push(limit(parsed.limit));
 
     const q = query(collection(db, "bookingRequests"), ...constraints);
@@ -37,7 +41,18 @@ export function useBookingRequests(filters = {}) {
     const unsubscribe = onSnapshot(
       q,
       (snap) => {
-        setRequests(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+        let docs = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        
+        // Sort in memory if we couldn't use orderBy in the query
+        const hasStatusIn = parsed.status && Array.isArray(parsed.status) && parsed.status.length > 1;
+        if (hasStatusIn) {
+          docs.sort((a, b) => {
+            if (a.date !== b.date) return (a.date || "").localeCompare(b.date || "");
+            return (a.startSlot || 0) - (b.startSlot || 0);
+          });
+        }
+        
+        setRequests(docs);
         setLoading(false);
       },
       (err) => {

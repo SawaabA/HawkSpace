@@ -4,6 +4,9 @@ import {
   doc,
   runTransaction,
   serverTimestamp,
+  query,
+  where,
+  getDocs,
 } from "firebase/firestore"
 import { db } from "@/services/firebase"
 import {
@@ -254,6 +257,307 @@ export async function rejectBookingRequest({ requestId, admin, reason = "" }) {
       { merge: true }
     )
   })
+}
+
+export async function createRecurringBookingRequests({
+  room,
+  startDate,
+  startSlot,
+  endSlot,
+  notes = "",
+  user,
+  recurrenceType,
+  recurrenceCount,
+}) {
+  if (!room?.id) throw new Error("Select a room to continue")
+  if (!recurrenceType || !recurrenceCount) {
+    throw new Error("Invalid recurrence settings")
+  }
+
+  const seriesId = `series-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  const requestIds = []
+
+  for (let i = 0; i < recurrenceCount; i++) {
+    const occurrenceDate = new Date(startDate)
+    
+    if (recurrenceType === "weekly") {
+      occurrenceDate.setDate(occurrenceDate.getDate() + (i * 7))
+    } else if (recurrenceType === "monthly") {
+      occurrenceDate.setMonth(occurrenceDate.getMonth() + i)
+    }
+
+    const dateStr = occurrenceDate.toISOString().split("T")[0]
+    
+    try {
+      validateSlotWindow({ date: dateStr, startSlot, endSlot })
+
+      const requestRef = doc(bookingRequestsCol)
+      const calendarRef = doc(db, "rooms", room.id, "days", dateStr)
+
+      await runTransaction(db, async (tx) => {
+        const calendarSnap = await tx.get(calendarRef)
+        const calendarData = ensureCalendar(calendarSnap, room.id, dateStr)
+
+        if (slotsConflict(calendarData.slots, startSlot, endSlot)) {
+          throw new Error(`Conflict on ${dateStr} - slot already taken`)
+        }
+
+        const requestDoc = {
+          id: requestRef.id,
+          roomId: room.id,
+          roomName: room.displayName || room.name || room.id,
+          roomSnapshot: {
+            displayName: room.displayName || room.name || room.id,
+            building: room.building || "",
+            floor: room.floor || "",
+            capacity: room.capacity || null,
+            equipment: room.equipment || [],
+          },
+          requestedBy: {
+            uid: user?.uid || "",
+            email: user?.email || "",
+            displayName: user?.displayName || user?.email || "",
+          },
+          date: dateStr,
+          startSlot,
+          endSlot,
+          startTime: slotToTime(startSlot),
+          endTime: slotToTime(endSlot),
+          durationLabel: computeDurationLabel(startSlot, endSlot),
+          status: "pending",
+          notes,
+          adminNotes: "",
+          decision: "",
+          timezone: OPERATING_TIMEZONE,
+          seriesId,
+          seriesInfo: {
+            type: recurrenceType,
+            count: recurrenceCount,
+            index: i,
+          },
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          history: [
+            buildHistoryEntry(
+              "created",
+              user,
+              `${notes || "Recurring booking"} (${i + 1}/${recurrenceCount})`
+            ),
+          ],
+        }
+
+        tx.set(requestRef, requestDoc)
+
+        const slots = applySlots(
+          calendarData.slots,
+          startSlot,
+          endSlot,
+          requestRef.id,
+          "pending"
+        )
+        const pending = new Set(calendarData.pendingRequestIds || [])
+        pending.add(requestRef.id)
+
+        tx.set(
+          calendarRef,
+          {
+            roomId: room.id,
+            date: dateStr,
+            slots,
+            pendingRequestIds: Array.from(pending),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        )
+      })
+
+      requestIds.push(requestRef.id)
+    } catch (err) {
+      // If any occurrence fails, we still continue with others
+      console.warn(`Skipped occurrence ${i + 1} on ${dateStr}:`, err.message)
+    }
+  }
+
+  if (requestIds.length === 0) {
+    throw new Error("Could not create any bookings in the series")
+  }
+
+  return { seriesId, requestIds }
+}
+
+export async function cancelRecurringSeries({ seriesId, user }) {
+  if (!seriesId) throw new Error("Series ID required")
+
+  // Query all requests in this series
+  const requestsQuery = query(
+    collection(db, "bookingRequests"),
+    where("seriesId", "==", seriesId)
+  )
+  
+  const snapshot = await getDocs(requestsQuery)
+  
+  if (snapshot.empty) {
+    throw new Error("No bookings found in this series")
+  }
+
+  const cancellations = []
+  
+  for (const docSnap of snapshot.docs) {
+    const request = docSnap.data()
+    
+    // Only cancel pending, modified, or approved bookings
+    if (["pending", "modified", "approved"].includes(request.status)) {
+      const requestRef = doc(db, "bookingRequests", docSnap.id)
+      const calendarRef = doc(db, "rooms", request.roomId, "days", request.date)
+      
+      try {
+        await runTransaction(db, async (tx) => {
+          const calendarSnap = await tx.get(calendarRef)
+          const calendarData = ensureCalendar(calendarSnap, request.roomId, request.date)
+          
+          const slots = removeSlots(
+            calendarData.slots,
+            request.startSlot,
+            request.endSlot,
+            docSnap.id
+          )
+          const pending = new Set(calendarData.pendingRequestIds || [])
+          pending.delete(docSnap.id)
+          
+          tx.update(requestRef, {
+            status: "cancelled",
+            decision: "Cancelled by user",
+            updatedAt: serverTimestamp(),
+            history: arrayUnion(buildHistoryEntry("cancelled", user, "Cancelled series")),
+          })
+          
+          tx.set(
+            calendarRef,
+            {
+              roomId: request.roomId,
+              date: request.date,
+              slots,
+              pendingRequestIds: Array.from(pending),
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          )
+        })
+        
+        cancellations.push(docSnap.id)
+      } catch (err) {
+        console.warn(`Failed to cancel booking ${docSnap.id}:`, err.message)
+      }
+    }
+  }
+  
+  if (cancellations.length === 0) {
+    throw new Error("No bookings were cancelled (they may already be cancelled or rejected)")
+  }
+  
+  return { cancelled: cancellations }
+}
+
+export async function overrideBookingRequest({
+  requestId,
+  admin,
+  reason,
+  priorityLevel = "high",
+}) {
+  if (!requestId) throw new Error("Request ID required")
+  if (!reason) throw new Error("Override reason required")
+
+  const requestRef = doc(db, "bookingRequests", requestId)
+  
+  await runTransaction(db, async (tx) => {
+    const requestSnap = await tx.get(requestRef)
+    if (!requestSnap.exists()) throw new Error("Request not found")
+    const request = requestSnap.data()
+
+    const calendarRef = doc(db, "rooms", request.roomId, "days", request.date)
+    const calendarSnap = await tx.get(calendarRef)
+    const calendarData = ensureCalendar(calendarSnap, request.roomId, request.date)
+
+    // Find and cancel any conflicting approved bookings
+    const conflictingRequestIds = new Set()
+    for (const slot of buildSlotRange(request.startSlot, request.endSlot)) {
+      const slotData = calendarData.slots?.[slot]
+      if (slotData && slotData.status === "approved" && slotData.requestId !== requestId) {
+        conflictingRequestIds.add(slotData.requestId)
+      }
+    }
+
+    // Override conflicting bookings
+    for (const conflictId of conflictingRequestIds) {
+      const conflictRef = doc(db, "bookingRequests", conflictId)
+      const conflictSnap = await tx.get(conflictRef)
+      
+      if (conflictSnap.exists()) {
+        const conflictData = conflictSnap.data()
+        
+        // Remove conflicting booking slots
+        for (const slot of buildSlotRange(conflictData.startSlot, conflictData.endSlot)) {
+          if (calendarData.slots?.[slot]?.requestId === conflictId) {
+            delete calendarData.slots[slot]
+          }
+        }
+        
+        // Mark conflicting booking as overridden
+        tx.update(conflictRef, {
+          status: "overridden",
+          decision: `Overridden by admin for priority event: ${reason}`,
+          updatedAt: serverTimestamp(),
+          history: arrayUnion(
+            buildHistoryEntry("overridden", admin, `Overridden for: ${reason}`, {
+              overriddenBy: requestId,
+              priorityLevel,
+            })
+          ),
+        })
+      }
+    }
+
+    // Apply slots for the new priority booking
+    const slots = applySlots(
+      calendarData.slots,
+      request.startSlot,
+      request.endSlot,
+      requestId,
+      "approved"
+    )
+    
+    const pending = new Set(calendarData.pendingRequestIds || [])
+    pending.delete(requestId)
+
+    // Update the priority request to approved
+    tx.update(requestRef, {
+      status: "approved",
+      adminNotes: reason,
+      decision: `Approved with override (${priorityLevel} priority)`,
+      updatedAt: serverTimestamp(),
+      history: arrayUnion(
+        buildHistoryEntry("approved_override", admin, reason, {
+          overrode: Array.from(conflictingRequestIds),
+          priorityLevel,
+        })
+      ),
+    })
+
+    // Update calendar
+    tx.set(
+      calendarRef,
+      {
+        roomId: request.roomId,
+        date: request.date,
+        slots,
+        pendingRequestIds: Array.from(pending),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    )
+  })
+
+  return { success: true }
 }
 
 export async function modifyBookingRequest({ requestId, admin, updates }) {

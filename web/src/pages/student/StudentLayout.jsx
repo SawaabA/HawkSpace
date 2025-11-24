@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import "@/styles/student.css";
 import { featuredEvent } from "@/data/events";
 import { LAURIER_CAMPUS_PAGE } from "@/constants/branding";
@@ -13,6 +14,7 @@ const links = [
 
 export default function StudentLayout() {
   const { profile, user, isAdmin } = useAuth();
+  const { highContrast, toggleHighContrast } = useTheme();
 
   return (
     <div className="student-shell">
@@ -46,15 +48,33 @@ export default function StudentLayout() {
             </NavLink>
           )}
         </nav>
-        <div className="student-user">
-          <div style={{ fontWeight: 700 }}>{profile?.displayName || user?.email}</div>
-          <div style={{ fontSize: 12 }}>
-            {profile?.role || "Student"} · <span style={{ color: "#a398c6" }}>America/Toronto</span>
-          </div>
-          <div style={{ marginTop: 6 }}>
-            <NavLink to="/logout" className="logout-link">
-              Log out
-            </NavLink>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <button
+            onClick={toggleHighContrast}
+            aria-label={highContrast ? "Disable high contrast mode" : "Enable high contrast mode"}
+            title={highContrast ? "Disable high contrast mode" : "Enable high contrast mode"}
+            style={{
+              padding: ".5rem",
+              borderRadius: 8,
+              border: "1px solid #c4b5fd",
+              background: highContrast ? "#4338ca" : "white",
+              color: highContrast ? "white" : "#4338ca",
+              cursor: "pointer",
+              fontSize: 18,
+            }}
+          >
+            {highContrast ? "🔆" : "◐"}
+          </button>
+          <div className="student-user">
+            <div style={{ fontWeight: 700 }}>{profile?.displayName || user?.email}</div>
+            <div style={{ fontSize: 12 }}>
+              {profile?.role || "Student"} · <span style={{ color: "#a398c6" }}>America/Toronto</span>
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <NavLink to="/logout" className="logout-link">
+                Log out
+              </NavLink>
+            </div>
           </div>
         </div>
       </header>
