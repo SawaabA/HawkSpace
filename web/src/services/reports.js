@@ -24,19 +24,17 @@ function monthRange(year, month1to12) {
 export async function getMonthlyUsageReport({ year, month, roomId = "all" }) {
   const { start, end } = monthRange(year, month);
 
-  let q = query(
-    bookingRequestsCol,
-    where("status", "==", "approved"),
-    where("date", ">=", start),
-    where("date", "<", end)
-  );
+  // Use a simple equality filter on status to avoid requiring a composite index.
+  // We then filter the date range client-side for this small dataset.
+  let q = query(bookingRequestsCol, where("status", "==", "approved"));
 
   if (roomId !== "all") {
     q = query(q, where("roomId", "==", roomId));
   }
 
   const snap = await getDocs(q);
-  const bookings = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const bookings = all.filter((b) => b.date >= start && b.date < end);
 
   // --- per-room aggregation ---
   const perRoomMap = new Map();

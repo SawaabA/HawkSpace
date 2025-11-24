@@ -10,6 +10,7 @@ import {
   slotOptions,
   slotToTime,
   slotsConflict,
+  describeSlotRange,
 } from "@/utils/slots";
 import { MAX_BOOKING_HOURS, MAX_SLOTS_PER_BOOKING, OPERATING_TIMEZONE, TOTAL_SLOTS } from "@/constants/schedule";
 
@@ -117,11 +118,97 @@ export default function RequestBooking() {
       <section className="student-section">
         <div className="chip">Request submitted</div>
         <h2>We&apos;ve received your booking</h2>
-        <p>Tracking ID: <code>{successId}</code></p>
-        <p>You&apos;ll receive an email when an admin reviews the request.</p>
-        <button type="button" className="primary-btn" onClick={() => navigate("/my-requests")}>
-          View my requests
-        </button>
+        <p style={{ color: "#64748b", maxWidth: 520 }}>
+          Your request is <strong>pending review</strong> by the campus bookings team. You&apos;ll receive an email
+          as soon as it&apos;s approved, updated, or rejected.
+        </p>
+
+        <div className="requests-stack" style={{ marginTop: "1.5rem" }}>
+          <article className="request-card">
+            <header
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 12,
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700 }}>
+                  {selectedRoom?.displayName || selectedRoom?.name || selectedRoom?.id || "Requested room"}
+                </div>
+                <div style={{ color: "#475467", fontSize: 14 }}>{formatDateWithWeekday(date)}</div>
+              </div>
+              <span
+                style={{
+                  padding: ".35rem .75rem",
+                  borderRadius: 999,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  textTransform: "capitalize",
+                  background: "#fff1cc",
+                  color: "#8b6500",
+                }}
+              >
+                Pending review
+              </span>
+            </header>
+
+            <dl
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                gap: 12,
+                marginTop: 12,
+                marginBottom: 4,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.4,
+                    color: "#94a3b8",
+                  }}
+                >
+                  Time
+                </div>
+                <div style={{ fontWeight: 600 }}>
+                  {startSlot != null && endSlot != null ? describeSlotRange(startSlot, endSlot) : "Pending"}
+                </div>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.4,
+                    color: "#94a3b8",
+                  }}
+                >
+                  Tracking ID
+                </div>
+                <div style={{ fontWeight: 600 }}>
+                  <code>{successId}</code>
+                </div>
+              </div>
+            </dl>
+
+            <p style={{ fontSize: 13, color: "#6b7280", marginTop: 8 }}>
+              You can always come back to this request from the <strong>My Requests</strong> page.
+            </p>
+          </article>
+        </div>
+
+        <div className="hero-actions" style={{ marginTop: "1.5rem" }}>
+          <button type="button" className="primary-btn" onClick={() => navigate("/my-requests")}>
+            View my requests
+          </button>
+          <button type="button" className="secondary-btn" onClick={() => setSuccessId("")}>
+            Submit another request
+          </button>
+        </div>
       </section>
     );
   }

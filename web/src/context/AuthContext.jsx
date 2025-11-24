@@ -12,6 +12,15 @@ import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "@/services/firebase";
 
 export const ALLOWED_DOMAIN = "@mylaurier.ca";
+const GMAIL_DOMAIN = "@gmail.com";
+
+export function isAllowedEmail(normalizedEmail) {
+  if (!normalizedEmail) return false;
+  if (normalizedEmail.endsWith(ALLOWED_DOMAIN)) return true;
+  // TEMPORARY: allow any @gmail.com address for testing
+  if (normalizedEmail.endsWith(GMAIL_DOMAIN)) return true;
+  return false;
+}
 const DEFAULT_ROLE = "user";
 const ADMIN_ROLE = "admin";
 
@@ -90,8 +99,8 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password, { remember = true } = {}) => {
     const normalized = String(email || "").trim().toLowerCase();
-    if (!normalized.endsWith(ALLOWED_DOMAIN)) {
-      throw new Error(`Please sign in with your ${ALLOWED_DOMAIN} email.`);
+    if (!isAllowedEmail(normalized)) {
+      throw new Error(`Please sign in with your ${ALLOWED_DOMAIN} email or a Gmail address (temporary).`);
     }
     await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
     await signInWithEmailAndPassword(auth, normalized, password);

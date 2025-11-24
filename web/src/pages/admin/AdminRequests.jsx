@@ -150,11 +150,16 @@ export default function AdminRequests() {
                 </div>
                 <span
                   style={{
-                    padding: ".2rem .6rem",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: 90,
+                    padding: ".25rem .85rem",
                     borderRadius: 999,
                     background: statusPalette[req.status] || "#f1f5f9",
                     fontSize: 12,
                     fontWeight: 600,
+                    textTransform: "capitalize",
                   }}
                 >
                   {req.status}
@@ -207,13 +212,21 @@ export default function AdminRequests() {
                 />
               </div>
 
-              <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-                <label style={{ fontSize: 13 }}>
-                  Date
+              <div
+                style={{
+                  marginTop: 16,
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  alignItems: "flex-end",
+                }}
+              >
+                <label style={{ fontSize: 13, flex: "1 1 160px", display: "grid", gap: 4 }}>
+                  <span>Date</span>
                   <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} style={{ width: "100%" }} />
                 </label>
-                <label style={{ fontSize: 13 }}>
-                  Start
+                <label style={{ fontSize: 13, flex: "1 1 120px", display: "grid", gap: 4 }}>
+                  <span>Start</span>
                   <select value={editStart ?? ""} onChange={(e) => setEditStart(Number(e.target.value))}>
                     <option value="">—</option>
                     {slotChoices
@@ -223,8 +236,8 @@ export default function AdminRequests() {
                       ))}
                   </select>
                 </label>
-                <label style={{ fontSize: 13 }}>
-                  End
+                <label style={{ fontSize: 13, flex: "1 1 120px", display: "grid", gap: 4 }}>
+                  <span>End</span>
                   <select value={editEnd ?? ""} onChange={(e) => setEditEnd(Number(e.target.value))}>
                     <option value="">—</option>
                     {slotChoices

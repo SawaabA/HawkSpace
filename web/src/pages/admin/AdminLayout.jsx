@@ -50,7 +50,7 @@ export default function AdminLayout() {
               textDecoration: "none",
               fontWeight: 600,
               color: "#0f172a",
-              background: "white",
+              background: "#38bdf8", // distinct sky blue so it doesn't blend with Requests/Reports
             }}
           >
             Student view
