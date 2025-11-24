@@ -96,21 +96,45 @@ function exportDetailedCSV(report) {
     [], // blank line
   ];
 
-  const csvString = [
+  const lines = [
     ...summaryRows.map((r) => r.join(",")),
     header.join(","),
     ...rows.map((r) => r.join(",")),
-  ].join("\n");
+  ];
 
-  const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+  const csvString = lines.join("\n");
+
+  // Prefix with BOM so Excel/Windows reliably recognize UTF‑8 CSV
+  const csvWithBom = "\ufeff" + csvString;
+  
+  // Create Blob with proper CSV MIME type (text/csv is the standard)
+  const blob = new Blob([csvWithBom], { type: "text/csv" });
+  
+  // Create object URL from blob (more reliable than data URLs)
   const url = URL.createObjectURL(blob);
 
   const link = document.createElement("a");
   link.href = url;
-  link.download = `hawkspace-detailed-${report.year}-${String(report.month).padStart(2, "0")}.csv`;
-  link.click();
-
-  URL.revokeObjectURL(url);
+  const filename = `hawkspace-detailed-${report.year}-${String(report.month).padStart(2, "0")}.csv`;
+  link.download = filename;
+  
+  // Append to body temporarily (required for some browsers)
+  document.body.appendChild(link);
+  // Use a synthetic MouseEvent instead of link.click() because
+  // some Chromium/Edge builds ignore the download filename when
+  // click() is called programmatically on blob: URLs.
+  const clickEvent = new MouseEvent("click", {
+    view: window,
+    bubbles: true,
+    cancelable: true,
+  });
+  link.dispatchEvent(clickEvent);
+  
+  // Cleanup: remove link and revoke object URL after a short delay
+  setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 100);
 }
 
 export default function AdminReports() {

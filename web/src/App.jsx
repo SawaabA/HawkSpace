@@ -32,10 +32,11 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route element={<UnauthRoute />}>
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
       </Route>
 
+      {/* Signup is outside UnauthRoute so it can redirect to verify-email after account creation */}
+      <Route path="/signup" element={<Signup />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/logout" element={<Logout />} />
 

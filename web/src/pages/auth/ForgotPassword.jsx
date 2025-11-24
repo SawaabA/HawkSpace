@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { sendPasswordResetEmail } from "firebase/auth";
 import AuthLayout from "@/components/AuthLayout";
 import { auth } from "@/services/firebase";
-import { ALLOWED_DOMAIN } from "@/context/AuthContext";
+import { ALLOWED_DOMAIN, isAllowedEmail } from "@/context/AuthContext";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -16,8 +16,8 @@ export default function ForgotPassword() {
     setError("");
     setStatus("");
     const eLower = String(email || "").trim().toLowerCase();
-    if (!eLower.endsWith(ALLOWED_DOMAIN)) {
-      setError(`Please enter your ${ALLOWED_DOMAIN} email.`);
+    if (!isAllowedEmail(eLower)) {
+      setError(`Please enter your ${ALLOWED_DOMAIN} email or a Gmail address (temporary).`);
       return;
     }
     setSubmitting(true);

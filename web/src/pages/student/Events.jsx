@@ -38,11 +38,52 @@ export default function Events() {
     navigate(requestUrl(event));
   };
 
+  const handleShare = async (event) => {
+    const eventUrl = `${window.location.origin}/events#events-calendar`;
+    const shareText = `Check out this event: ${event.title} on ${event.date} at ${event.location}. ${event.description}`;
+    
+    const shareData = {
+      title: event.title,
+      text: shareText,
+      url: eventUrl,
+    };
+
+    // Try Web Share API first (mobile/desktop browsers that support it)
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (err) {
+        // User cancelled or error occurred, fall back to clipboard
+        if (err.name !== 'AbortError') {
+          console.error('Error sharing:', err);
+        }
+      }
+    }
+
+    // Fallback: Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(`${shareText}\n\n${eventUrl}`);
+      // Show a temporary success message
+      const button = document.activeElement;
+      const originalText = button.textContent;
+      button.textContent = '✓ Copied!';
+      button.style.background = '#4ade80';
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.style.background = '';
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      alert(`Share this event:\n\n${shareText}\n\n${eventUrl}`);
+    }
+  };
+
   return (
     <section className="student-section" id="events-calendar">
       <div className="events-grid">
         <aside className="events-calendar">
-          <div className="chip">Events Calendar</div>
+          <p className="events-calendar-label">Events Calendar</p>
           <h2 style={{ marginBottom: "0.4rem" }}>Golden Hawk Happenings</h2>
           <p style={{ color: "#5f5976", marginTop: 0 }}>
             Everything from funding labs to social programming, curated for clubs and student leaders.
@@ -64,13 +105,13 @@ export default function Events() {
           </ul>
 
           <a
-            className="secondary-btn"
-            style={{ width: "100%" }}
-            href="https://www.wlu.ca/news/spotlights/event-calendar.html"
+            className="primary-btn"
+            style={{ width: "100%", justifyContent: "center", marginTop: "0.5rem", alignSelf: "start" }}
+            href="https://events.dudesolutions.com/wlu/"
             target="_blank"
             rel="noreferrer"
           >
-            Open Laurier events site
+            Full Events Calendar
           </a>
         </aside>
 
@@ -95,7 +136,7 @@ export default function Events() {
               <button type="button" className="primary-btn" onClick={() => handleReserve(featuredEvent)}>
                 Reserve this space
               </button>
-              <button type="button" className="secondary-btn">
+              <button type="button" className="secondary-btn light" onClick={() => handleShare(featuredEvent)}>
                 Share with my club
               </button>
             </div>

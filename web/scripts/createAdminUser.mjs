@@ -7,7 +7,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const defaultKeyPath = path.resolve(__dirname, '../web/serviceAccountKey.json');
+const defaultKeyPath = path.resolve(__dirname, '../serviceAccountKey.json');
 const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT || defaultKeyPath;
 
 async function loadServiceAccount() {

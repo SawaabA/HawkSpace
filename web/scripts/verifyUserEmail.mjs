@@ -3,11 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { FieldValue, getFirestore } from 'firebase-admin/firestore';
-import { ROOMS } from '../web/src/data/rooms.js';
+import { getAuth } from 'firebase-admin/auth';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const defaultKeyPath = path.resolve(__dirname, '../web/serviceAccountKey.json');
+const defaultKeyPath = path.resolve(__dirname, '../serviceAccountKey.json');
 const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT || defaultKeyPath;
 
 async function loadServiceAccount() {
@@ -23,26 +22,42 @@ async function loadServiceAccount() {
 }
 
 async function main() {
-  const serviceAccount = await loadServiceAccount();
-  initializeApp({ credential: cert(serviceAccount) });
-  const db = getFirestore();
+  const email = process.argv[2];
 
-  for (const room of ROOMS) {
-    await db.collection('rooms').doc(room.id).set(
-      {
-        ...room,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
-    console.log(`Seeded room ${room.id}`);
+  if (!email) {
+    console.error('Usage: node verifyUserEmail.mjs user@mylaurier.ca');
+    process.exit(1);
   }
 
-  console.log(`\nDone! Seeded ${ROOMS.length} rooms.`);
+  const serviceAccount = await loadServiceAccount();
+  initializeApp({ credential: cert(serviceAccount) });
+  const auth = getAuth();
+
+  console.log(`Verifying email for user: ${email}`);
+
+  try {
+    const userRecord = await auth.getUserByEmail(email);
+    console.log(`Found user: ${userRecord.uid}`);
+    
+    // Update user to mark email as verified
+    await auth.updateUser(userRecord.uid, {
+      emailVerified: true,
+    });
+    
+    console.log(`✅ Email verified successfully for ${email}`);
+    console.log(`   User ID: ${userRecord.uid}`);
+  } catch (err) {
+    if (err.code === 'auth/user-not-found') {
+      console.error(`❌ User not found: ${email}`);
+    } else {
+      console.error(`❌ Error: ${err.message}`);
+    }
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {
   console.error(err);
   process.exitCode = 1;
 });
+

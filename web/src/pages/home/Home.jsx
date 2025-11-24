@@ -1,17 +1,21 @@
 import React from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { featuredEvent } from "@/data/events";
 import "./Home.css";
 
 export default function Home() {
-  const { currentUser } = useAuth(); // currentUser is null if not logged in
+  // `useAuth` exposes `user`, not `currentUser`
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleBookNow = () => {
-    if (currentUser) {
-      navigate("/request"); // logged-in users go to room booking
+    if (user) {
+      // Logged-in users go directly to the room booking page
+      navigate("/request");
     } else {
-      navigate("/login");   // not logged-in users are requred to login
+      // Not logged-in users are taken to the login page first
+      navigate("/login");
     }
   };
 
@@ -27,7 +31,19 @@ export default function Home() {
 
       <div className="upcoming-events">
         <h2>Upcoming Events</h2>
-        <p>No upcoming events this week.</p>
+        {featuredEvent ? (
+          <div className="upcoming-event-card">
+            <div className="upcoming-event-label">Next event</div>
+            <h3 className="upcoming-event-title">{featuredEvent.title}</h3>
+            <p className="upcoming-event-meta">
+              {featuredEvent.date} · {featuredEvent.time}
+            </p>
+            <p className="upcoming-event-location">{featuredEvent.location}</p>
+            <p className="upcoming-event-description">{featuredEvent.description}</p>
+          </div>
+        ) : (
+          <p>No upcoming events this week.</p>
+        )}
       </div>
     </div>
   );

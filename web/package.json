@@ -10,7 +10,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "create-admin": "node scripts/createAdminUser.mjs",
+    "seed-rooms": "node scripts/seedRoomsAdmin.mjs",
+    "verify-email": "node scripts/verifyUserEmail.mjs",
+    "verify-server": "node scripts/verifyEmailServer.mjs"
   },
   "dependencies": {
     "firebase": "^10.12.5",
@@ -21,9 +25,12 @@
   "devDependencies": {
     "@eslint/js": "^9.12.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "cors": "^2.8.5",
     "eslint": "^9.12.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.12",
+    "express": "^4.21.2",
+    "firebase-admin": "^13.6.0",
     "globals": "^15.12.0",
     "vite": "^5.4.11"
   }

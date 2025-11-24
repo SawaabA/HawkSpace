@@ -1,5 +1,6 @@
 import { useBookingRequests } from "@/hooks/useBookingRequests";
 import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { describeSlotRange, formatDateWithWeekday } from "@/utils/slots";
 
 const statusPalette = {
@@ -12,7 +13,34 @@ const statusPalette = {
 
 export default function MyRequests() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { requests, loading } = useBookingRequests({ requestedBy: user?.uid });
+
+  const statusLabels = {
+    pending: "Pending review",
+    approved: "Approved",
+    modified: "Updated · pending review",
+    rejected: "Rejected",
+    cancelled: "Cancelled",
+  };
+
+  const statusOrder = {
+    pending: 0,
+    modified: 1,
+    approved: 2,
+    rejected: 3,
+    cancelled: 4,
+  };
+
+  const sortedRequests = [...requests].sort((a, b) => {
+    const orderA = statusOrder[a.status] ?? 99;
+    const orderB = statusOrder[b.status] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+    if (a.date === b.date) return (a.startSlot ?? 0) - (b.startSlot ?? 0);
+    return (a.date || "").localeCompare(b.date || "");
+  });
+
+  const pendingCount = requests.filter((req) => req.status === "pending" || req.status === "modified").length;
 
   if (!user) {
     return (
@@ -26,13 +54,24 @@ export default function MyRequests() {
     <section className="student-section">
       <div className="chip">My Requests</div>
       <h2>Requests you&apos;ve submitted</h2>
-      <p style={{ color: "#64748b", marginTop: -6 }}>Cancellations will be available in a future update.</p>
+      <p style={{ color: "#64748b", marginTop: -6 }}>
+        {pendingCount > 0
+          ? `You have ${pendingCount} request${pendingCount > 1 ? "s" : ""} awaiting review. Cancellations will be available in a future update.`
+          : "Cancellations will be available in a future update."}
+      </p>
 
-      {loading && <p>Loading…</p>}
-      {!loading && requests.length === 0 && <p>No requests yet.</p>}
+      {loading && <p style={{ color: "#64748b" }}>Loading your latest requests…</p>}
+      {!loading && requests.length === 0 && (
+        <div style={{ marginTop: "1.25rem" }}>
+          <p style={{ color: "#64748b" }}>You haven&apos;t submitted any room requests yet.</p>
+          <button type="button" className="primary-btn" onClick={() => navigate("/request")}>
+            Submit your first request
+          </button>
+        </div>
+      )}
 
       <div className="requests-stack">
-        {requests.map((req) => (
+        {sortedRequests.map((req) => (
           <article
             key={req.id}
             className="request-card"
@@ -56,7 +95,8 @@ export default function MyRequests() {
             >
               <Detail label="Time" value={describeSlotRange(req.startSlot, req.endSlot)} />
               <Detail label="Submitted on" value={req.createdAt?.toDate?.().toLocaleString?.() || "—"} />
-              <Detail label="Decision" value={req.decision || "Pending"} />
+              <Detail label="Status" value={statusLabels[req.status] || "Pending review"} />
+              {req.decision && <Detail label="Decision" value={req.decision} />}
             </dl>
 
             {req.notes && (
@@ -68,6 +108,11 @@ export default function MyRequests() {
               <div style={{ fontSize: 14, color: "#0f172a", marginTop: 8 }}>
                 <strong>Admin notes:</strong> {req.adminNotes}
               </div>
+            )}
+            {req.status === "pending" && (
+              <p style={{ fontSize: 13, color: "#854d0e", marginTop: 8 }}>
+                This request is waiting for admin review. You&apos;ll receive an email once a decision is made.
+              </p>
             )}
           </article>
         ))}
@@ -87,19 +132,33 @@ function Detail({ label, value }) {
 
 function StatusPill({ status }) {
   const palette = statusPalette[status] || statusPalette.pending;
+  const labelMap = {
+    pending: "Pending",
+    approved: "Approved",
+    modified: "Modified",
+    rejected: "Rejected",
+    cancelled: "Cancelled",
+  };
+  const label = labelMap[status] || "Pending";
+
   return (
     <span
       style={{
-        padding: ".35rem .75rem",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 96,
+        padding: ".3rem .9rem",
         borderRadius: 999,
         fontWeight: 600,
-        fontSize: 13,
-        textTransform: "capitalize",
+        fontSize: 12,
+        textTransform: "uppercase",
+        letterSpacing: 0.08,
         background: palette.bg,
         color: palette.color,
       }}
     >
-      {status}
+      {label}
     </span>
   );
 }
