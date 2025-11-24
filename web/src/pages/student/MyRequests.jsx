@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useBookingRequests } from "@/hooks/useBookingRequests";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { describeSlotRange, formatDateWithWeekday } from "@/utils/slots";
+import { cancelRecurringSeries } from "@/services/bookings";
 
 const statusPalette = {
   pending: { bg: "#fff1cc", color: "#8b6500" },
@@ -15,6 +17,7 @@ export default function MyRequests() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { requests, loading } = useBookingRequests({ requestedBy: user?.uid });
+  const [cancellingSeriesId, setCancellingSeriesId] = useState(null);
 
   const statusLabels = {
     pending: "Pending review",
@@ -40,7 +43,36 @@ export default function MyRequests() {
     return (a.date || "").localeCompare(b.date || "");
   });
 
+  // Group by series
+  const seriesMap = new Map();
+  const singleRequests = [];
+
+  sortedRequests.forEach((req) => {
+    if (req.seriesId) {
+      if (!seriesMap.has(req.seriesId)) {
+        seriesMap.set(req.seriesId, []);
+      }
+      seriesMap.get(req.seriesId).push(req);
+    } else {
+      singleRequests.push(req);
+    }
+  });
+
   const pendingCount = requests.filter((req) => req.status === "pending" || req.status === "modified").length;
+
+  const handleCancelSeries = async (seriesId) => {
+    if (!confirm("Cancel all bookings in this recurring series?")) return;
+    
+    setCancellingSeriesId(seriesId);
+    try {
+      await cancelRecurringSeries({ seriesId, user });
+      alert("Series cancelled successfully");
+    } catch (err) {
+      alert(err.message || "Failed to cancel series");
+    } finally {
+      setCancellingSeriesId(null);
+    }
+  };
 
   if (!user) {
     return (
@@ -71,7 +103,74 @@ export default function MyRequests() {
       )}
 
       <div className="requests-stack">
-        {sortedRequests.map((req) => (
+        {Array.from(seriesMap.entries()).map(([seriesId, seriesRequests]) => {
+          const firstReq = seriesRequests[0];
+          const allCancelled = seriesRequests.every((r) => r.status === "cancelled" || r.status === "rejected");
+          
+          return (
+            <article
+              key={seriesId}
+              className="request-card"
+              style={{ border: "2px solid #c4b5fd", background: "#faf8ff" }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 20 }}>🔁</span>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>Recurring Series: {firstReq.roomName}</div>
+                    <div style={{ fontSize: 13, color: "#6b5a90" }}>
+                      {seriesRequests.length} bookings · {firstReq.seriesInfo?.type}
+                    </div>
+                  </div>
+                </div>
+                {!allCancelled && (
+                  <button
+                    onClick={() => handleCancelSeries(seriesId)}
+                    disabled={cancellingSeriesId === seriesId}
+                    style={{
+                      padding: ".4rem .9rem",
+                      borderRadius: 8,
+                      border: "1px solid #dc2626",
+                      background: "white",
+                      color: "#dc2626",
+                      fontWeight: 600,
+                      fontSize: 13,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {cancellingSeriesId === seriesId ? "Cancelling..." : "Cancel Series"}
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: "grid", gap: 8, marginLeft: 28 }}>
+                {seriesRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    style={{
+                      padding: ".75rem",
+                      borderRadius: 10,
+                      background: "white",
+                      border: "1px solid #e9e3ff",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{formatDateWithWeekday(req.date)}</div>
+                        <div style={{ fontSize: 13, color: "#64748b" }}>
+                          {describeSlotRange(req.startSlot, req.endSlot)}
+                        </div>
+                      </div>
+                      <StatusPill status={req.status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+
+        {singleRequests.map((req) => (
           <article
             key={req.id}
             className="request-card"

@@ -46,3 +46,56 @@ code {
   padding: 0.15rem 0.4rem;
   border-radius: 6px;
 }
+
+/* High Contrast Mode */
+body.high-contrast {
+  --laurier-purple: #1a0033;
+  --laurier-purple-dark: #000000;
+  --laurier-lilac: #ffffff;
+  --laurier-gold: #ffcc00;
+  --laurier-slate: #000000;
+  --laurier-muted: #000000;
+  --shell-bg: #ffffff;
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+body.high-contrast * {
+  border-color: #000000 !important;
+}
+
+body.high-contrast a {
+  color: #0000cc !important;
+  text-decoration: underline !important;
+  font-weight: 600;
+}
+
+body.high-contrast button {
+  border: 2px solid #000000 !important;
+  font-weight: 700 !important;
+}
+
+body.high-contrast .primary-btn,
+body.high-contrast .secondary-btn {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border: 2px solid #000000 !important;
+}
+
+body.high-contrast input,
+body.high-contrast select,
+body.high-contrast textarea {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+}
+
+body.high-contrast h1,
+body.high-contrast h2,
+body.high-contrast h3,
+body.high-contrast h4,
+body.high-contrast h5,
+body.high-contrast h6 {
+  color: #000000 !important;
+  font-weight: 800 !important;
+}

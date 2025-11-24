@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useRooms } from "@/hooks/useRooms";
 import { useRoomCalendar } from "@/hooks/useRoomCalendar";
 import { useAuth } from "@/context/AuthContext";
-import { createBookingRequest } from "@/services/bookings";
+import { createBookingRequest, createRecurringBookingRequests } from "@/services/bookings";
 import {
   formatDateWithWeekday,
   getDefaultDate,
@@ -47,6 +47,11 @@ export default function RequestBooking() {
   const [error, setError] = useState("");
   const [successId, setSuccessId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  
+  // Recurrence state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceType, setRecurrenceType] = useState("weekly"); // "weekly" or "monthly"
+  const [recurrenceCount, setRecurrenceCount] = useState(4); // Number of occurrences
 
   useEffect(() => {
     if (!roomId && rooms.length) setRoomId(rooms[0].id);
@@ -92,20 +97,39 @@ export default function RequestBooking() {
     setError("");
     setSubmitting(true);
     try {
-      const id = await createBookingRequest({
-        room: selectedRoom,
-        date,
-        startSlot,
-        endSlot,
-        notes,
-        user: {
-          uid: user.uid,
-          email: user.email,
-          displayName: profile?.displayName || user.email,
-          role: profile?.role,
-        },
-      });
-      setSuccessId(id);
+      if (isRecurring) {
+        const result = await createRecurringBookingRequests({
+          room: selectedRoom,
+          startDate: date,
+          startSlot,
+          endSlot,
+          notes,
+          user: {
+            uid: user.uid,
+            email: user.email,
+            displayName: profile?.displayName || user.email,
+            role: profile?.role,
+          },
+          recurrenceType,
+          recurrenceCount,
+        });
+        setSuccessId(result.seriesId);
+      } else {
+        const id = await createBookingRequest({
+          room: selectedRoom,
+          date,
+          startSlot,
+          endSlot,
+          notes,
+          user: {
+            uid: user.uid,
+            email: user.email,
+            displayName: profile?.displayName || user.email,
+            role: profile?.role,
+          },
+        });
+        setSuccessId(id);
+      }
     } catch (err) {
       setError(err.message || "Failed to submit request");
     } finally {
@@ -114,13 +138,14 @@ export default function RequestBooking() {
   };
 
   if (successId) {
+    const isSeriesId = successId.startsWith("series-");
     return (
       <section className="student-section">
         <div className="chip">Request submitted</div>
-        <h2>We&apos;ve received your booking</h2>
+        <h2>We&apos;ve received your booking{isSeriesId ? " series" : ""}</h2>
         <p style={{ color: "#64748b", maxWidth: 520 }}>
-          Your request is <strong>pending review</strong> by the campus bookings team. You&apos;ll receive an email
-          as soon as it&apos;s approved, updated, or rejected.
+          Your {isSeriesId ? `${recurrenceCount} recurring bookings are` : "request is"} <strong>pending review</strong> by the campus bookings team. You&apos;ll receive an email
+          as soon as {isSeriesId ? "they're" : "it's"} approved, updated, or rejected.
         </p>
 
         <div className="requests-stack" style={{ marginTop: "1.5rem" }}>
@@ -295,6 +320,51 @@ export default function RequestBooking() {
             placeholder="Club name, setup needs, etc."
           />
         </label>
+
+        <div style={{ border: "2px solid #e0d4ff", borderRadius: 10, padding: "1rem", background: "#faf8ff" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 600 }}>
+            <input
+              type="checkbox"
+              checked={isRecurring}
+              onChange={(e) => setIsRecurring(e.target.checked)}
+              style={{ width: 18, height: 18, cursor: "pointer" }}
+            />
+            Make this a recurring booking
+          </label>
+
+          {isRecurring && (
+            <div style={{ marginTop: "1rem", display: "grid", gap: "1rem" }}>
+              <label className="filter-field">
+                Recurrence type
+                <select
+                  value={recurrenceType}
+                  onChange={(e) => setRecurrenceType(e.target.value)}
+                  className="filter-input"
+                >
+                  <option value="weekly">Weekly (same day each week)</option>
+                  <option value="monthly">Monthly (same date each month)</option>
+                </select>
+              </label>
+
+              <label className="filter-field">
+                Number of occurrences
+                <input
+                  type="number"
+                  min="2"
+                  max="12"
+                  value={recurrenceCount}
+                  onChange={(e) => setRecurrenceCount(parseInt(e.target.value) || 2)}
+                  className="filter-input"
+                />
+              </label>
+
+              <div style={{ fontSize: 13, color: "#475467", background: "#f3f0ff", padding: "0.75rem", borderRadius: 8 }}>
+                📅 This will create <strong>{recurrenceCount}</strong> bookings{" "}
+                {recurrenceType === "weekly" ? "weekly" : "monthly"} starting from {date}
+              </div>
+            </div>
+          )}
+        </div>
 
         {error && <div style={{ color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
         {conflict && <div style={{ color: "#92400e", fontWeight: 600 }}>Selected time overlaps an approved or pending request.</div>}

@@ -7,6 +7,7 @@ import {
   approveBookingRequest,
   modifyBookingRequest,
   rejectBookingRequest,
+  overrideBookingRequest,
 } from "@/services/bookings";
 import {
   describeSlotRange,
@@ -23,16 +24,19 @@ const statusPalette = {
 
 export default function AdminRequests() {
   const [dateFilter, setDateFilter] = useState(getDefaultDate());
-  const { requests, loading } = useBookingRequests({ status: ["pending", "modified"], date: dateFilter });
+  const { requests, loading } = useBookingRequests({ status: ["pending", "modified"] });
   const [selectedId, setSelectedId] = useState(null);
+  
+  // Filter requests by date in memory (after fetching all pending/modified)
+  const filteredRequests = requests.filter(req => !dateFilter || req.date === dateFilter);
   const { rooms } = useRooms();
   const { user, profile } = useAuth();
 
   useEffect(() => {
-    if (!selectedId && requests.length) setSelectedId(requests[0].id);
-  }, [requests, selectedId]);
+    if (!selectedId && filteredRequests.length) setSelectedId(filteredRequests[0].id);
+  }, [filteredRequests, selectedId]);
 
-  const selectedRequest = requests.find((req) => req.id === selectedId) || requests[0];
+  const selectedRequest = filteredRequests.find((req) => req.id === selectedId) || filteredRequests[0];
   const { calendar } = useRoomCalendar(selectedRequest?.roomId, selectedRequest?.date);
   const activeRoom = useMemo(
     () => rooms.find((room) => room.id === selectedRequest?.roomId),
@@ -45,6 +49,9 @@ export default function AdminRequests() {
   const [editStart, setEditStart] = useState(selectedRequest?.startSlot ?? null);
   const [editEnd, setEditEnd] = useState(selectedRequest?.endSlot ?? null);
   const [actionStatus, setActionStatus] = useState("");
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overridePriority, setOverridePriority] = useState("high");
 
   useEffect(() => {
     if (!selectedRequest) return;
@@ -116,6 +123,28 @@ export default function AdminRequests() {
     }
   };
 
+  const handleOverride = async () => {
+    if (!selectedRequest) return;
+    if (!overrideReason.trim()) {
+      setActionStatus("Override reason is required");
+      return;
+    }
+    setActionStatus("Overriding…");
+    try {
+      await overrideBookingRequest({
+        requestId: selectedRequest.id,
+        admin: actor,
+        reason: overrideReason,
+        priorityLevel: overridePriority,
+      });
+      setOverrideReason("");
+      setShowOverrideModal(false);
+      setActionStatus("Override completed ✔");
+    } catch (err) {
+      setActionStatus(err.message || "Failed to override");
+    }
+  };
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
@@ -127,11 +156,11 @@ export default function AdminRequests() {
       </div>
 
       {loading && <p>Loading…</p>}
-      {!loading && requests.length === 0 && <p>No pending requests for that day.</p>}
+      {!loading && filteredRequests.length === 0 && <p>No pending requests for that day.</p>}
 
       <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: "1.5rem", marginTop: "1.5rem" }}>
         <section style={{ display: "grid", gap: 12 }}>
-          {requests.map((req) => (
+          {filteredRequests.map((req) => (
             <article
               key={req.id}
               onClick={() => setSelectedId(req.id)}
@@ -256,10 +285,55 @@ export default function AdminRequests() {
               <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <button onClick={handleApprove} style={primaryButton}>Approve</button>
                 <button onClick={handleModify} style={secondaryButton}>Modify window</button>
+                <button onClick={() => setShowOverrideModal(true)} style={overrideButton}>Override</button>
                 <button onClick={handleReject} style={dangerButton}>Reject</button>
               </div>
 
               {actionStatus && <div style={{ marginTop: 10, color: "#374151" }}>{actionStatus}</div>}
+
+              {showOverrideModal && (
+                <div style={modalOverlay}>
+                  <div style={modalContent}>
+                    <h3 style={{ marginTop: 0 }}>Override Booking</h3>
+                    <p style={{ color: "#64748b", fontSize: 14 }}>
+                      This will <strong>cancel any conflicting approved bookings</strong> and approve this priority event.
+                      Use this feature only for high-priority institutional needs.
+                    </p>
+                    
+                    <label style={{ display: "block", marginTop: 16 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 6 }}>Override Reason (required)</div>
+                      <textarea
+                        value={overrideReason}
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        rows={3}
+                        placeholder="e.g., Emergency meeting, VIP visit, institutional priority"
+                        style={{ width: "100%", padding: "0.6rem", borderRadius: 8, border: "1px solid #cbd5e1" }}
+                      />
+                    </label>
+
+                    <label style={{ display: "block", marginTop: 12 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 6 }}>Priority Level</div>
+                      <select
+                        value={overridePriority}
+                        onChange={(e) => setOverridePriority(e.target.value)}
+                        style={{ width: "100%", padding: "0.6rem", borderRadius: 8, border: "1px solid #cbd5e1" }}
+                      >
+                        <option value="high">High Priority</option>
+                        <option value="critical">Critical/Emergency</option>
+                      </select>
+                    </label>
+
+                    <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
+                      <button onClick={handleOverride} style={{ ...primaryButton, background: "#f59e0b" }}>
+                        Confirm Override
+                      </button>
+                      <button onClick={() => { setShowOverrideModal(false); setOverrideReason(""); }} style={secondaryButton}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <AdminTimeline calendar={calendar} selectedRequest={selectedRequest} />
             </div>
@@ -325,7 +399,31 @@ const secondaryButton = {
   ...primaryButton,
   background: "#4338ca",
 };
+const overrideButton = {
+  ...primaryButton,
+  background: "#f59e0b",
+};
 const dangerButton = {
   ...primaryButton,
   background: "#ef4444",
+};
+const modalOverlay = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: "rgba(0, 0, 0, 0.6)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1000,
+};
+const modalContent = {
+  background: "white",
+  borderRadius: 16,
+  padding: "1.5rem",
+  maxWidth: 500,
+  width: "90%",
+  boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
 };
