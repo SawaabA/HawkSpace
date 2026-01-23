@@ -39,6 +39,19 @@ HawkSpace solves this with a live booking system inspired by airline-style reser
 - Enforce booking rules (max slot window)
 - Monthly room utilization reports with CSV export
 - Real-time calendar conflict view
+##  Recurring Booking & Slot Timeline
+
+![Recurring Booking Timeline](recurring_timeline.png)
+
+---
+
+##  Admin Pending Requests & Conflict Calendar
+
+![Admin Requests](admin_requests.png)
+
+---
+![Booking Success](hawkspace_readme_assets/booking_success.png)
+
 
 ---
 
@@ -53,6 +66,8 @@ Key design choices:
 - Firestore transactions prevent double-booking
 - Slot-based model using 30-minute blocks
 - Firebase scripts for seeding rooms and creating admins
+- 
+![System Architecture](/architecture.png)
 
 ---
 
