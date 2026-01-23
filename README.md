@@ -161,8 +161,8 @@ npm run verify-email user@mylaurier.ca
 | Role | Name |
 |-----|------|
 | Product Owner | Sawaab Anas |
-| Scrum Master | Muqadas Nazif |
-| Development Team | Manahil Bashir, Asmah Yasin Mohamed, Joleene Ismael, Efetobore Salubi |
+| Scrum Master | Efetobore Salubi  |
+| Development Team | Manahil Bashir, Asmah Yasin Mohamed, Joleene Ismael, Muqadas Nazif |
 
 ---
 
